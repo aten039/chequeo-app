@@ -7,9 +7,9 @@ import { PriceCheck, Product } from '../../src/database/types';
 import { initializeDatabase, listPriceChecks } from '../../src/database/database';
 
 const MOCK_PRODUCTS: Product[] = [
-  { id: '2208231', desc: 'BALDOSA CEMENTO GRIS MATE 60X60', prov: 'CERAMICA CARABOBO', category: '22' },
-  { id: '2412058', desc: 'LAVAMANOS DE EMPOTRAR ELSA BLA', prov: 'BINTER - LOZA', category: '24' },
-  { id: '2542232', desc: 'CARTUCHO 10" CELULOSA BLANCA', prov: 'CH AMERICAN CORP', category: '25' },
+  { code: 2208231, desc: 'BALDOSA CEMENTO GRIS MATE 60X60', prov: 'CERAMICA CARABOBO', category: '22', codExt: null },
+  { code: 2412058, desc: 'LAVAMANOS DE EMPOTRAR ELSA BLA', prov: 'BINTER - LOZA', category: '24', codExt: null },
+  { code: 2542232, desc: 'CARTUCHO 10" CELULOSA BLANCA', prov: 'CH AMERICAN CORP', category: '25', codExt: null },
 ];
 
 const MOCK_COMPETITORS = ['Ferretería EPA', 'Preca', 'ConstruYa', 'FerreTotal'];
@@ -29,7 +29,7 @@ export default function HomeScreen() {
     initializeDatabase();
     const records = listPriceChecks();
     setRecordsByProduct(records.reduce<Record<string, PriceCheck[]>>((result, record) => {
-      result[record.productId] = [...(result[record.productId] ?? []), record];
+      result[String(record.productCode)] = [...(result[String(record.productCode)] ?? []), record];
       return result;
     }, {}));
   }, []);
@@ -37,9 +37,9 @@ export default function HomeScreen() {
   const visibleProducts = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
     return MOCK_PRODUCTS.filter((product) => {
-      const matchesSearch = !query || `${product.id} ${product.desc}`.toLowerCase().includes(query);
+      const matchesSearch = !query || `${product.code} ${product.codExt ?? ''} ${product.desc}`.toLowerCase().includes(query);
       const matchesCategory = category === 'Todas' || product.category === category;
-      const isChecked = Boolean(recordsByProduct[product.id]?.length);
+      const isChecked = Boolean(recordsByProduct[String(product.code)]?.length);
       const matchesProgress = progressFilter === 'Todos'
         || (progressFilter === 'Chequeados' ? isChecked : !isChecked);
       return matchesSearch && matchesCategory && matchesProgress;
@@ -155,14 +155,14 @@ export default function HomeScreen() {
 
       <FlatList
         data={visibleProducts}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => String(item.code)}
         contentContainerStyle={{ padding: 12, paddingBottom: 24 }}
         renderItem={({ item }) => (
           <ProductCard
             product={item}
             globalCompetitor={globalCompetitor}
-            records={recordsByProduct[item.id] ?? []}
-            onRecordsChange={(records) => setRecordsByProduct((current) => ({ ...current, [item.id]: records }))}
+            records={recordsByProduct[String(item.code)] ?? []}
+            onRecordsChange={(records) => setRecordsByProduct((current) => ({ ...current, [String(item.code)]: records }))}
           />
         )}
         ListEmptyComponent={<Text className="text-slate-500 text-center mt-8">No hay productos con estos filtros.</Text>}

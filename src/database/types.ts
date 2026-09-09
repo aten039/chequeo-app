@@ -1,18 +1,18 @@
 export type Product = {
-  id: string;
+  category: string;
+  code: number;
   desc: string;
   prov: string;
-  category: string;
+  codExt: string | null;
 };
 
 export type Competitor = {
-  id: string;
   name: string;
 };
 
 export type PriceCheck = {
   id: number;
-  productId: string;
+  productCode: number;
   competitor: string;
   price: number;
   brand: string | null;

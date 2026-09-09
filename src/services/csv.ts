@@ -19,16 +19,18 @@ function parseRows(csv: string) {
 }
 
 export function parseProductsCsv(csv: string): Product[] {
-  return parseRows(csv).map(([id, desc, prov, category = '']) => {
-    if (!id || !desc || !prov) throw new Error('El CSV de productos tiene filas incompletas.');
-    return { id, desc, prov, category };
+  return parseRows(csv).map(([category, code, desc, prov, codExt = '']) => {
+    if (!category || !code || !desc || !prov) throw new Error('El CSV de productos tiene filas incompletas.');
+    const numericCode = Number(code);
+    if (!Number.isInteger(numericCode)) throw new Error(`Código de producto inválido: ${code}`);
+    return { category, code: numericCode, desc, prov, codExt: codExt || null };
   });
 }
 
 export function parseCompetitorsCsv(csv: string): Competitor[] {
-  return parseRows(csv).map(([name], index) => {
+  return parseRows(csv).map(([name]) => {
     if (!name) throw new Error('El CSV de competidores tiene filas incompletas.');
-    return { id: String(index + 1), name };
+    return { name };
   });
 }
 
@@ -42,7 +44,7 @@ export function formatShortDate(value: string | Date = new Date()) {
 export function priceChecksToCsv(rows: PriceCheck[]) {
   const columns = ['codigo', 'competidor', 'precio', 'marca', 'estado', 'observacion', 'fecha'];
   const body = rows.map((row) => [
-    row.productId,
+    row.productCode,
     row.competitor,
     row.price,
     row.brand ?? '',

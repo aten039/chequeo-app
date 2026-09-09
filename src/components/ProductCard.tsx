@@ -38,7 +38,7 @@ export default function ProductCard({ product, globalCompetitor, records, onReco
   const handleSave = () => {
     if (!isValid) return;
     const data = {
-      productId: product.id,
+      productCode: product.code,
       competitor: globalCompetitor,
       price: Number(precio),
       brand: marca.trim() || null,
@@ -72,7 +72,7 @@ export default function ProductCard({ product, globalCompetitor, records, onReco
     <View className={`bg-white mb-3 rounded-2xl border overflow-hidden ${records.length ? 'border-green-500' : 'border-slate-200'}`}>
       <View className="p-4 pb-2">
         <View className="flex-row justify-between items-center mb-1">
-          <Text className="text-slate-400 text-xs font-bold">{product.id}</Text>
+          <Text className="text-slate-400 text-xs font-bold">{product.code}</Text>
           <Text className="text-slate-400 text-xs">Cat. {product.category} · {product.prov}</Text>
         </View>
         <Text className="font-bold text-slate-800 text-sm">{product.desc}</Text>
@@ -115,13 +115,13 @@ export default function ProductCard({ product, globalCompetitor, records, onReco
 
           {records.length > 0 && (
             <View className="mt-3">
-              <Text className="text-slate-500 text-xs font-bold uppercase mb-2">Registros guardados</Text>
+              <Text className="text-slate-500 text-sm font-bold uppercase mb-2">Registros guardados</Text>
               {records.map((record) => (
                 <View key={record.id} className="bg-white border border-green-200 rounded-lg p-3 mb-2 flex-row items-center justify-between">
                   <View className="flex-1 mr-2">
-                    <Text className="text-slate-800 text-xs font-bold">${record.price} · {record.competitor}</Text>
-                    <Text className="text-slate-500 text-xs">{record.status}{record.brand ? ` · ${record.brand}` : ''} · {formatShortDate(record.createdAt)}</Text>
-                    {record.notes && <Text className="text-slate-500 text-xs mt-1">{record.notes}</Text>}
+                    <Text className="text-slate-800 text-sm font-bold">${record.price} · {record.competitor}</Text>
+                    <Text className="text-slate-500 text-sm">{record.status}{record.brand ? ` · ${record.brand}` : ''} · {record.notes && <Text className="text-slate-500 text-sm mt-1 text-wrap">{record.notes}</Text>}</Text>
+                    
                   </View>
                   <TouchableOpacity onPress={() => handleEdit(record)} className="bg-blue-50 rounded-lg p-2">
                     <Edit3 color="#2563eb" size={16} />
