@@ -1,41 +1,43 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { FlatList, Modal, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronDown, Search, Store } from 'lucide-react-native';
 import ProductCard from '../../src/components/ProductCard';
 import { PriceCheck, Product } from '../../src/database/types';
-import { listPriceChecks } from '../../src/database/database';
+import { listCompetitors, listPriceChecks, listProducts } from '../../src/database/database';
 
-const MOCK_PRODUCTS: Product[] = [
-  { code: 2208231, desc: 'BALDOSA CEMENTO GRIS MATE 60X60', prov: 'CERAMICA CARABOBO', category: '22', codExt: null },
-  { code: 2412058, desc: 'LAVAMANOS DE EMPOTRAR ELSA BLA', prov: 'BINTER - LOZA', category: '24', codExt: null },
-  { code: 2542232, desc: 'CARTUCHO 10" CELULOSA BLANCA', prov: 'CH AMERICAN CORP', category: '25', codExt: null },
-];
-
-const MOCK_COMPETITORS = ['Ferretería EPA', 'Preca', 'ConstruYa', 'FerreTotal'];
-const MOCK_CATEGORIES = ['Todas', '22', '24', '25'];
 type ProgressFilter = 'Todos' | 'Pendientes' | 'Chequeados';
 
 export default function HomeScreen() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [competitors, setCompetitors] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [globalCompetitor, setGlobalCompetitor] = useState(MOCK_COMPETITORS[0]);
+  const [globalCompetitor, setGlobalCompetitor] = useState('');
   const [competitorOpen, setCompetitorOpen] = useState(false);
   const [category, setCategory] = useState('Todas');
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [progressFilter, setProgressFilter] = useState<ProgressFilter>('Todos');
   const [recordsByProduct, setRecordsByProduct] = useState<Record<string, PriceCheck[]>>({});
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
+    const loadedProducts = listProducts();
+    const loadedCompetitors = listCompetitors();
     const records = listPriceChecks();
+    setProducts(loadedProducts);
+    setCompetitors(loadedCompetitors);
+    setGlobalCompetitor((current) => current && loadedCompetitors.includes(current) ? current : loadedCompetitors[0]);
     setRecordsByProduct(records.reduce<Record<string, PriceCheck[]>>((result, record) => {
       result[String(record.productCode)] = [...(result[String(record.productCode)] ?? []), record];
       return result;
     }, {}));
   }, []);
 
+  useFocusEffect(loadData);
+
   const visibleProducts = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    return MOCK_PRODUCTS.filter((product) => {
+    return products.filter((product) => {
       const matchesSearch = !query || `${product.code} ${product.codExt ?? ''} ${product.desc}`.toLowerCase().includes(query);
       const matchesCategory = category === 'Todas' || product.category === category;
       const isChecked = Boolean(recordsByProduct[String(product.code)]?.length);
@@ -43,15 +45,16 @@ export default function HomeScreen() {
         || (progressFilter === 'Chequeados' ? isChecked : !isChecked);
       return matchesSearch && matchesCategory && matchesProgress;
     });
-  }, [category, progressFilter, recordsByProduct, searchTerm]);
+  }, [category, products, progressFilter, recordsByProduct, searchTerm]);
 
   const checkedCount = Object.keys(recordsByProduct).filter((productId) => recordsByProduct[productId]?.length).length;
+  const categories = ['Todas', ...Array.from(new Set(products.map((product) => product.category)))];
 
   return (
     <SafeAreaView className="flex-1 bg-slate-100" edges={['top']}>
       <View className="bg-white px-4 pt-2 pb-1 flex-row items-center justify-between">
         <Text className="text-slate-900 text-base font-bold">Chequeo App</Text>
-        <Text className="text-slate-500 text-[13px] font-bold">Progreso: {checkedCount}/{MOCK_PRODUCTS.length}</Text>
+        <Text className="text-slate-500 text-[13px] font-bold">Progreso: {checkedCount}/{products.length}</Text>
       </View>
 
       <View className="bg-white px-4 pb-3">
@@ -65,7 +68,7 @@ export default function HomeScreen() {
           />
         </View>
 
-        <View className="flex-row items-center mt-2 z-30">
+        <View className="flex-row items-center mt-2 z-30" style={{ elevation: 30 }}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -85,7 +88,7 @@ export default function HomeScreen() {
             ))}
           </ScrollView>
 
-          <View className="w-[92px] relative">
+          <View className="w-[116px] relative" style={{ zIndex: 20 }}>
             <TouchableOpacity
               onPress={() => setCategoryOpen((open) => !open)}
               className="flex-row items-center justify-between bg-[#F4F4F4] rounded-full px-3 py-1"
@@ -95,26 +98,31 @@ export default function HomeScreen() {
               </Text>
               <ChevronDown color="#64748b" size={14} />
             </TouchableOpacity>
-            {categoryOpen && (
-              <View className="absolute top-8 right-0 w-[92px] bg-white rounded-lg border border-[#EBEBEB] shadow-lg overflow-hidden">
-                {MOCK_CATEGORIES.map((option) => (
-                  <Pressable
-                    key={option}
-                    onPress={() => { setCategory(option); setCategoryOpen(false); }}
-                    className="px-3 py-2 border-b border-[#EBEBEB]"
-                  >
-                    <Text className="text-slate-600 text-[13px]">{option}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            )}
+            <Modal visible={categoryOpen} transparent animationType="fade" onRequestClose={() => setCategoryOpen(false)}>
+              <Pressable className="flex-1 bg-black/20 justify-center items-center" onPress={() => setCategoryOpen(false)}>
+                <View className="w-4/5 max-h-[300px] bg-white rounded-xl border border-[#EBEBEB] shadow-lg overflow-hidden">
+                  <Text className="px-4 py-3 text-slate-800 font-bold border-b border-[#EBEBEB]">Categoría</Text>
+                  <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator>
+                    {categories.map((option) => (
+                      <Pressable
+                        key={option}
+                        onPress={() => { setCategory(option); setCategoryOpen(false); }}
+                        className="px-4 py-3 border-b border-[#EBEBEB]"
+                      >
+                        <Text className="text-slate-600 text-[13px]">{option}</Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+              </Pressable>
+            </Modal>
           </View>
         </View>
 
-        <View className="flex-row items-center mt-2 z-20">
+        <View className="flex-row items-center mt-2 z-20" style={{ elevation: 20 }}>
           <Store color="#64748b" size={15} />
           <Text className="text-slate-500 text-[13px] font-bold uppercase ml-1 mr-2">Competidor</Text>
-          <View className="flex-1 relative">
+          <View className="flex-1 relative" style={{ zIndex: 10 }}>
             <TouchableOpacity
               onPress={() => setCompetitorOpen((open) => !open)}
               className="flex-row items-center justify-between border-b border-[#EBEBEB] py-1"
@@ -122,22 +130,31 @@ export default function HomeScreen() {
               <Text className="text-slate-600 text-[13px]" numberOfLines={1}>{globalCompetitor}</Text>
               <ChevronDown color="#64748b" size={15} />
             </TouchableOpacity>
-            {competitorOpen && (
-              <View className="absolute top-10 left-0 right-0 bg-white border border-[#EBEBEB] rounded-lg shadow-lg overflow-hidden">
-                {MOCK_COMPETITORS.map((competitor) => (
-                  <Pressable
-                    key={competitor}
-                    onPress={() => {
-                      setGlobalCompetitor(competitor);
-                      setCompetitorOpen(false);
-                    }}
-                    className="px-3 py-3 border-b border-[#EBEBEB]"
-                  >
-                    <Text className="text-slate-600 text-[13px]">{competitor}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            )}
+            <Modal visible={competitorOpen} transparent animationType="fade" onRequestClose={() => setCompetitorOpen(false)}>
+              <Pressable className="flex-1 bg-black/20 justify-center items-center" onPress={() => setCompetitorOpen(false)}>
+                <View className="w-4/5 max-h-[320px] bg-white rounded-xl border border-[#EBEBEB] shadow-lg overflow-hidden">
+                  <Text className="px-4 py-3 text-slate-800 font-bold border-b border-[#EBEBEB]">Competidor</Text>
+                  <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator>
+                    {competitors.length === 0 ? (
+                      <Text className="px-4 py-3 text-slate-500">No hay competidores cargados</Text>
+                    ) : (
+                      competitors.map((competitor) => (
+                        <Pressable
+                          key={competitor}
+                          onPress={() => {
+                            setGlobalCompetitor(competitor);
+                            setCompetitorOpen(false);
+                          }}
+                          className="px-4 py-3 border-b border-[#EBEBEB]"
+                        >
+                          <Text className="text-slate-600 text-[13px]">{competitor}</Text>
+                        </Pressable>
+                      ))
+                    )}
+                  </ScrollView>
+                </View>
+              </Pressable>
+            </Modal>
           </View>
         </View>
       </View>
@@ -146,6 +163,10 @@ export default function HomeScreen() {
         data={visibleProducts}
         keyExtractor={(item) => String(item.code)}
         contentContainerStyle={{ padding: 12, paddingBottom: 24 }}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews
         renderItem={({ item }) => (
           <ProductCard
             product={item}

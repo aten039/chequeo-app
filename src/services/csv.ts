@@ -5,12 +5,14 @@ function splitRow(row: string, delimiter: ',' | ';') {
 }
 
 function dataRows(csv: string) {
-  return csv
+  const rows = csv
     .replace(/^\uFEFF/, '')
     .split(/\r?\n/)
     .map((row) => row.trim())
-    .filter(Boolean)
-    .slice(1);
+    .filter(Boolean);
+  const firstRow = rows[0]?.toLowerCase() ?? '';
+  const hasHeader = /categor[ií]a|c[oó]digo|descripci[oó]n|proveedor|nombre/.test(firstRow);
+  return hasHeader ? rows.slice(1) : rows;
 }
 
 function parseRows(csv: string) {
@@ -19,7 +21,7 @@ function parseRows(csv: string) {
 }
 
 export function parseProductsCsv(csv: string): Product[] {
-  return parseRows(csv).map(([category, code, desc, prov, codExt = '']) => {
+  return parseRows(csv).map(([category, code, codExt = '', desc, prov]) => {
     if (!category || !code || !desc || !prov) throw new Error('El CSV de productos tiene filas incompletas.');
     const numericCode = Number(code);
     if (!Number.isInteger(numericCode)) throw new Error(`Código de producto inválido: ${code}`);

@@ -2,7 +2,7 @@
   "expo": {
     "name": "chequeo-precios",
     "slug": "chequeo-precios",
-    "version": "1.0.0",
+    "version": "1.3.9",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
