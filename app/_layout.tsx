@@ -3,8 +3,11 @@ import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import '../global.css';
 import { initializeDatabase } from '../src/database/database';
+import { ThemeProvider, useTheme } from '../src/theme/ThemeContext';
 
-export default function RootLayout() {
+function RootContent() {
+  const { colors } = useTheme();
+
   const [isReady, setIsReady] = useState(false);
   const [databaseError, setDatabaseError] = useState<string | null>(null);
 
@@ -19,17 +22,17 @@ export default function RootLayout() {
 
   if (databaseError) {
     return (
-      <View className="flex-1 items-center justify-center bg-slate-100 px-6">
+      <View className="flex-1 items-center justify-center px-6" style={{ backgroundColor: colors.background }}>
         <Text className="text-lg font-bold text-red-700">Error al iniciar la base de datos</Text>
-        <Text className="text-slate-600 text-center mt-2">{databaseError}</Text>
+        <Text className="text-center mt-2" style={{ color: colors.muted }}>{databaseError}</Text>
       </View>
     );
   }
 
   if (!isReady) {
     return (
-      <View className="flex-1 items-center justify-center bg-slate-100">
-        <Text className="text-slate-600">Preparando la base de datos...</Text>
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: colors.background }}>
+        <Text style={{ color: colors.muted }}>Preparando la base de datos...</Text>
       </View>
     );
   }
@@ -38,5 +41,13 @@ export default function RootLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
     </Stack>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <RootContent />
+    </ThemeProvider>
   );
 }

@@ -1,9 +1,11 @@
 import { Tabs } from 'expo-router';
 import { Database, Search } from 'lucide-react-native';
+import { useTheme } from '../../src/theme/ThemeContext';
 
 export default function TabsLayout() {
+  const { colors } = useTheme();
   return (
-    <Tabs screenOptions={{ headerShown: false }}>
+    <Tabs screenOptions={{ headerShown: false, tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border }, tabBarActiveTintColor: colors.primary, tabBarInactiveTintColor: colors.muted }}>
       <Tabs.Screen
         name="index"
         options={{

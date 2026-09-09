@@ -3,11 +3,13 @@ import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { File } from 'expo-file-system';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { Database, Download, Trash2, Upload } from 'lucide-react-native';
+import { Database, Download, Moon, Sun, Trash2, Upload } from 'lucide-react-native';
 import { clearDatabase, initializeDatabase, listPriceChecks, replaceCompetitors, replaceProducts } from '../../src/database/database';
 import { parseCompetitorsCsv, parseProductsCsv, priceChecksToCsv } from '../../src/services/csv';
+import { useTheme } from '../../src/theme/ThemeContext';
 
 export default function GestionScreen() {
+  const { colors, isDark, toggleTheme } = useTheme();
   const [loading, setLoading] = useState(false);
 
   const pickCsv = async () => {
@@ -92,60 +94,68 @@ export default function GestionScreen() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-slate-100 p-4" >
-      <View className="bg-white rounded-2xl p-6 border border-slate-200 mb-4">
+    <ScrollView className="flex-1 p-4" contentContainerStyle={{ paddingBottom: 110 }} style={{ backgroundColor: colors.background }}>
+      <TouchableOpacity onPress={toggleTheme} className="mb-4 py-3 rounded-xl flex-row justify-center items-center" style={{ backgroundColor: colors.primaryTint }}>
+        {isDark ? <Sun color={colors.primary} size={20} /> : <Moon color={colors.primary} size={20} />}
+        <Text className="font-bold ml-2" style={{ color: colors.primary }}>{isDark ? 'Activar modo claro' : 'Activar modo oscuro'}</Text>
+      </TouchableOpacity>
+
+      <View className="rounded-2xl p-6 border mb-4" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
         <View className="flex-row items-center mb-4">
-          <Database color="#2563eb" size={24} />
-          <Text className="text-lg font-bold text-slate-800 ml-2">Sincronización local</Text>
+          <Database color={colors.primary} size={24} />
+          <Text className="text-lg font-bold ml-2" style={{ color: colors.text }}>Sincronización local</Text>
         </View>
-        <Text className="text-slate-500 text-sm mb-6">
+        <Text className="text-sm mb-6" style={{ color: colors.muted }}>
           Sube archivos CSV separados por coma (,) o punto y coma (;), con o sin encabezados. Siguiendo el orden de columnas que se indica a continuación:
         </Text>
-        <Text className="text-slate-500 text-sm mb-6">
+        <Text className="text-sm mb-6" style={{ color: colors.muted }}>
         productos: Categoría - Código - Código Externo (opcional) - Descripción - Proveedor.
         </Text>
-        <Text className="text-slate-500 text-sm mb-6">
+        <Text className="text-sm mb-6" style={{ color: colors.muted }}>
             competidores: Nombre.
         </Text>
         <TouchableOpacity
           onPress={handleProductsImport}
           disabled={loading}
-          className="bg-slate-50 border border-slate-300 py-4 rounded-xl flex-row justify-center items-center mb-3"
+          className="border py-4 rounded-xl flex-row justify-center items-center mb-3"
+          style={{ backgroundColor: colors.primaryTint, borderColor: colors.border }}
         >
-          <Upload color="#475569" size={20} />
-          <Text className="text-slate-700 font-bold ml-2">1. Cargar Productos.csv</Text>
+          <Upload color={colors.primary} size={20} />
+          <Text className="font-bold ml-2" style={{ color: colors.primary }}>1. Cargar Productos.csv</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={handleCompetitorsImport}
           disabled={loading}
-          className="bg-slate-50 border border-slate-300 py-4 rounded-xl flex-row justify-center items-center"
+          className="border py-4 rounded-xl flex-row justify-center items-center"
+          style={{ backgroundColor: colors.primaryTint, borderColor: colors.border }}
         >
-          <Upload color="#475569" size={20} />
-          <Text className="text-slate-700 font-bold ml-2">2. Cargar Competidores.csv</Text>
+          <Upload color={colors.primary} size={20} />
+          <Text className="font-bold ml-2" style={{ color: colors.primary }}>2. Cargar Competidores.csv</Text>
         </TouchableOpacity>
       </View>
 
-      <View className="bg-white rounded-2xl p-6 border border-slate-200">
-        <Text className="text-lg font-bold text-slate-800 mb-2">Exportar al finalizar</Text>
-        <Text className="text-slate-500 text-sm mb-6">
+      <View className="rounded-2xl p-6 border" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
+        <Text className="text-lg font-bold mb-2" style={{ color: colors.text }}>Exportar al finalizar</Text>
+        <Text className="text-sm mb-6" style={{ color: colors.muted }}>
           Genera un CSV delimitado por punto y coma (;), con código, competidor, precio, marca, estado, observación y fecha en formato DD/MM/AAAA.
         </Text>
         <TouchableOpacity
           onPress={handleExport}
           disabled={loading}
-          className="bg-slate-800 py-4 rounded-xl flex-row justify-center items-center"
+          className="py-4 rounded-xl flex-row justify-center items-center"
+          style={{ backgroundColor: colors.primary }}
         >
           <Download color="white" size={20} />
           <Text className="text-white font-bold ml-2">Exportar resultados (CSV)</Text>
         </TouchableOpacity>
       </View>
 
-      <View className="bg-white rounded-2xl p-6 border border-red-200 mt-4">
+      <View className="rounded-2xl p-6 border mt-4" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
         <View className="flex-row items-center mb-2">
           <Trash2 color="#dc2626" size={20} />
-          <Text className="text-base font-bold text-slate-800 ml-2">Reiniciar información</Text>
+          <Text className="text-base font-bold ml-2" style={{ color: colors.text }}>Reiniciar información</Text>
         </View>
-        <Text className="text-slate-500 text-sm mb-4">
+        <Text className="text-sm mb-4" style={{ color: colors.muted }}>
           Elimina todos los productos, competidores y registros para comenzar una carga nueva.
         </Text>
         <TouchableOpacity
@@ -156,6 +166,7 @@ export default function GestionScreen() {
           <Text className="text-red-700 font-bold ml-2">Borrar toda la información</Text>
         </TouchableOpacity>
       </View>
+
     </ScrollView>
   );
 }
