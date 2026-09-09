@@ -5,11 +5,14 @@
     "version": "1.3.9",
     "orientation": "portrait",
     "icon": "./assets/echeck.jpeg",
+    "scheme": "chequeoprecios",
     "userInterfaceStyle": "light",
     "ios": {
+      "bundleIdentifier": "com.chequeoprecios.app",
       "supportsTablet": true
     },
     "android": {
+      "package": "com.chequeoprecios.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/echeck.jpeg",
