@@ -1,93 +1,89 @@
-# Chequeo-precios - Project Structure
+# Chequeo-precios - Guia de arquitectura para agentes
 
-## Overview
-This is an Expo application using **Expo Router** for navigation. The project follows a clean architecture with separation of concerns.
+## Objetivo
 
-## Directory Structure
+Aplicacion Expo para revisar precios de productos contra competidores, con datos locales y funcionamiento offline.
 
-### `app/` - Routing (Expo Router)
-- **Purpose**: Handles all navigation, tabs, and screen stacking
-- **Convention**: File-based routing - each file becomes a route
-- **Structure**:
-  - `app/(tabs)/` - Tab navigator container
-    - `_layout.tsx` - Tab bar configuration (hides default tab bar, provides custom)
-    - `index.tsx` - Home screen (root route)
-    - `profile.tsx` - Profile screen
-    - `settings.tsx` - Settings screen
-- **Key files**:
-  - `app/(tabs)/_layout.tsx` - Configures the tab navigator, sets `tabBar={() => null}` to hide default
-  - `app/index.tsx` - Entry point if needed (Expo Router uses file-based routing)
+## Estructura
 
-### `src/components/` - Reusable UI Components
-- **Purpose**: Visual components that don't know about navigation or data
-- **Contents**: Buttons, Cards, Inputs, etc.
-- **Example structure**:
-  - `src/components/Button.tsx` - Reusable button component
-  - `src/components/Card.tsx` - Reusable card component
-  - `src/components/Input.tsx` - Input field component
-
-### `src/database/` - SQLite & Data Logic
-- **Purpose**: All SQLite operations, queries, and repositories
-- **Contents**:
-  - Database connection setup
-  - Query functions
-  - Repository patterns for data access
-- **Note**: Created in step 2 of the plan
-
-### `src/services/` - Import/Export Logic
-- **Purpose**: CSV import/export functionality
-- **Contents**:
-  - CSV parsing and validation
-  - File reading/writing
-  - Data transformation
-
-## Key Configuration Files
-
-### `package.json`
-- `"main": "expo-router/entry"` - Points Expo Router as the entry point
-- Dependencies: `expo-router`, `expo-sqlite`, `lucide-react-native`, `nativewind`, `tailwindcss`
-
-### `tailwind.config.js`
-```js
-content: [
-  "./app/**/*.{js,jsx,ts,tsx}", 
-  "./src/**/*.{js,jsx,ts,tsx}"
-],
+```text
+app/
+  _layout.tsx                 # Stack raiz de Expo Router
+  (tabs)/
+    _layout.tsx               # Navegacion inferior
+    index.tsx                 # Revision y busqueda de productos
+    gestion.tsx               # Importacion y exportacion de datos
+src/
+  components/                 # Componentes visuales reutilizables
+  database/                   # SQLite, tipos y repositorios
+    database.ts
+    types.ts
+  services/                   # CSV, transformaciones e integraciones
+    csv.ts
+global.css                    # Entrada de Tailwind/NativeWind
+metro.config.js               # Integracion de NativeWind con Metro
+tailwind.config.js            # Fuentes de clases y preset NativeWind
+babel.config.js               # Babel de Expo y NativeWind
 ```
-- Scans both `app/` (routes) and `src/` (components) for Tailwind class names
 
-### `babel.config.js`
-```js
-plugins: ["nativewind/babel"],
-```
-- Enables Tailwind Just-In-Time processing
+## Reglas de arquitectura
 
-### `app.json`
-- Includes `expo-router` and `expo-status-bar` plugins
-- Configures orientation, icons, and platform-specific settings
+- Las rutas de `app/` coordinan navegacion y estado de pantalla; no deben contener SQL ni parseo CSV.
+- Los componentes de `src/components/` deben ser reutilizables y recibir datos por props.
+- Toda operacion SQLite pertenece a `src/database/`. Usa `types.ts` para contratos compartidos.
+- Toda lectura, validacion o exportacion CSV pertenece a `src/services/`.
+- Mantener la aplicacion offline-first: la UI puede trabajar con datos locales y la persistencia debe ser explicita.
+- No mezclar logica de infraestructura con estilos o JSX si puede vivir en una capa inferior.
+- No borrar cambios existentes del usuario. Hacer cambios pequenos y compatibles con las APIs publicas actuales.
 
-## Navigation Patterns
+## NativeWind y estilos
 
-### Tabs
-- Created using `(tabs)` folder convention in Expo Router
-- Each file inside becomes a tab item
-- `_layout.tsx` customizes the tab bar behavior
+- Usar `className` en componentes React Native cuando el estilo sea estatico o utilitario.
+- Mantener `global.css`, `metro.config.js`, `tailwind.config.js` y `babel.config.js` sincronizados.
+- `tailwind.config.js` debe conservar `nativewind/preset` y los paths de `app` y `src`.
+- Para estilos calculados o componentes complejos se permite `StyleSheet.create`.
+- Tras cambiar configuracion de estilos, ejecutar `npx expo start -c` o limpiar la cache de Metro.
 
-### Stacks
-- Created using regular folder nesting (e.g., `(auth)/login.tsx`)
-- Back navigation handled automatically by Expo Router
+## Navegacion
 
-## Development Commands
+- Expo Router usa rutas basadas en archivos.
+- `(tabs)` es un grupo de rutas y no forma parte de la URL.
+- Las nuevas pantallas principales deben registrarse en `app/(tabs)/_layout.tsx`.
+- No usar `TabNavigator`; la API instalada es `Tabs`.
 
-- `npm run start` - Start Expo development server
-- `npm run android` - Run on Android
-- `npm run ios` - Run on iOS (macOS required)
-- `npm run web` - Run in web browser
+## Base de datos
 
-## Adding New Screens
+- Inicializar SQLite antes de realizar consultas con `initializeDatabase()`.
+- Usar parametros en consultas; nunca interpolar valores del usuario en SQL.
+- Mantener nombres de dominio en `src/database/types.ts` y mapear nombres SQL en los repositorios.
+- La marca de un registro es opcional (`string | null`); no bloquear el guardado por ausencia de marca.
+- Los productos incluyen `category`, cargada desde el CSV y usada por los filtros de la pantalla de revisión.
+- Las migraciones deben ser idempotentes y usar `CREATE TABLE IF NOT EXISTS` o una version de esquema controlada.
 
-1. **Tab screen**: Add file to `app/(tabs)/`
-2. **Stack screen**: Create nested folder structure like `app/(auth)/login.tsx`
-3. **Component**: Add to `src/components/`
-4. **Database query**: Add to `src/database/`
-5. **Service**: Add to `src/services/`
+## CSV
+
+- Los CSV del proyecto usan `;` como separador.
+- Validar encabezados y filas antes de persistir informacion.
+- No asumir que un archivo tiene codificacion perfecta; manejar BOM y saltos de linea CRLF.
+- Mantener funciones de parseo puras y faciles de probar.
+
+## Flujo de trabajo para IA
+
+1. Leer este archivo y localizar primero el modulo que controla el comportamiento solicitado.
+2. Formular una hipotesis local y una comprobacion pequena antes de editar.
+3. Revisar los archivos relacionados y respetar cambios no realizados por el agente.
+4. Aplicar el cambio minimo con el estilo existente.
+5. Ejecutar inmediatamente una validacion enfocada despues de la primera edicion.
+6. Para cambios de TypeScript, ejecutar `npx tsc --noEmit`.
+7. Para cambios de Expo o Babel, ejecutar `npx expo export --platform android` o iniciar Expo.
+8. Para cambios de NativeWind, comprobar configuracion, limpiar cache y verificar una pantalla real.
+9. No ejecutar `npm audit fix --force` ni actualizar dependencias sin una razon concreta.
+10. No crear commits ni ramas salvo peticion expresa.
+
+## Comandos
+
+- `npm install`: instalar dependencias.
+- `npx tsc --noEmit`: validar TypeScript.
+- `npx expo export --platform android`: validar el bundle Android.
+- `npx expo start --tunnel`: iniciar Expo Go mediante tunel.
+- `npx expo start -c`: iniciar limpiando cache de Metro.
