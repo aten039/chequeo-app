@@ -47,12 +47,12 @@ export default function HomeScreen() {
   }, [category, progressFilter, recordsByProduct, searchTerm]);
 
   const checkedCount = Object.keys(recordsByProduct).filter((productId) => recordsByProduct[productId]?.length).length;
-  const progressPercent = MOCK_PRODUCTS.length ? (checkedCount / MOCK_PRODUCTS.length) * 100 : 0;
 
   return (
     <SafeAreaView className="flex-1 bg-slate-100" edges={['top']}>
-      <View className="bg-white px-4 pt-2 pb-1">
+      <View className="bg-white px-4 pt-2 pb-1 flex-row items-center justify-between">
         <Text className="text-slate-900 text-base font-bold">Chequeo App</Text>
+        <Text className="text-slate-500 text-[13px] font-bold">Progreso: {checkedCount}/{MOCK_PRODUCTS.length}</Text>
       </View>
 
       <View className="bg-white px-4 pb-3">
@@ -79,7 +79,7 @@ export default function HomeScreen() {
                 onPress={() => setProgressFilter(option)}
                 className={`px-3 py-1 rounded-full mr-2 ${progressFilter === option ? 'bg-blue-500' : 'bg-[#F4F4F4]'}`}
               >
-                <Text className={`text-[11px] font-bold ${progressFilter === option ? 'text-white' : 'text-slate-600'}`}>
+                <Text className={`text-[13px] font-bold ${progressFilter === option ? 'text-white' : 'text-slate-600'}`}>
                   {option}
                 </Text>
               </TouchableOpacity>
@@ -91,7 +91,7 @@ export default function HomeScreen() {
               onPress={() => setCategoryOpen((open) => !open)}
               className="flex-row items-center justify-between bg-[#F4F4F4] rounded-full px-3 py-1"
             >
-              <Text className="text-slate-600 text-[11px]" numberOfLines={1}>
+              <Text className="text-slate-600 text-[13px]" numberOfLines={1}>
                 {category}
               </Text>
               <ChevronDown color="#64748b" size={14} />
@@ -104,7 +104,7 @@ export default function HomeScreen() {
                     onPress={() => { setCategory(option); setCategoryOpen(false); }}
                     className="px-3 py-2 border-b border-[#EBEBEB]"
                   >
-                    <Text className="text-slate-600 text-xs">{option}</Text>
+                    <Text className="text-slate-600 text-[13px]">{option}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -114,7 +114,7 @@ export default function HomeScreen() {
 
         <View className="flex-row items-center mt-2 z-20">
           <Store color="#64748b" size={15} />
-          <Text className="text-slate-500 text-[10px] font-bold uppercase ml-1 mr-2">Competidor</Text>
+          <Text className="text-slate-500 text-[13px] font-bold uppercase ml-1 mr-2">Competidor</Text>
           <View className="flex-1 relative">
             <TouchableOpacity
               onPress={() => setCompetitorOpen((open) => !open)}
@@ -140,16 +140,6 @@ export default function HomeScreen() {
               </View>
             )}
           </View>
-        </View>
-      </View>
-
-      <View className="px-4 mt-4 mb-2">
-        <View className="flex-row justify-between items-center">
-          <Text className="text-xs text-slate-500">Progreso: {checkedCount}/{MOCK_PRODUCTS.length}</Text>
-          <Text className="text-xs text-slate-400">{visibleProducts.length} productos</Text>
-        </View>
-        <View className="h-[2px] bg-[#F4F4F4] rounded-full mt-2 overflow-hidden">
-          <View className="h-[2px] bg-blue-500 rounded-full" style={{ width: `${progressPercent}%` }} />
         </View>
       </View>
 
