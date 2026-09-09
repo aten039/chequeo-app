@@ -26,7 +26,7 @@ export default function GestionScreen() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-slate-100 p-4">
+    <ScrollView className="flex-1 bg-slate-100 p-4" >
       <View className="bg-white rounded-2xl p-6 border border-slate-200 mb-4">
         <View className="flex-row items-center mb-4">
           <Database color="#2563eb" size={24} />

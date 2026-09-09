@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronDown, Search, Store } from 'lucide-react-native';
 import ProductCard from '../../src/components/ProductCard';
 import { PriceCheck, Product } from '../../src/database/types';
-import { initializeDatabase, listPriceChecks } from '../../src/database/database';
+import { listPriceChecks } from '../../src/database/database';
 
 const MOCK_PRODUCTS: Product[] = [
   { code: 2208231, desc: 'BALDOSA CEMENTO GRIS MATE 60X60', prov: 'CERAMICA CARABOBO', category: '22', codExt: null },
@@ -26,7 +26,6 @@ export default function HomeScreen() {
   const [recordsByProduct, setRecordsByProduct] = useState<Record<string, PriceCheck[]>>({});
 
   useEffect(() => {
-    initializeDatabase();
     const records = listPriceChecks();
     setRecordsByProduct(records.reduce<Record<string, PriceCheck[]>>((result, record) => {
       result[String(record.productCode)] = [...(result[String(record.productCode)] ?? []), record];
