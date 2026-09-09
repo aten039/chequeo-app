@@ -171,6 +171,7 @@ export default function HomeScreen() {
       <FlatList
         data={visibleProducts}
         keyExtractor={(item) => String(item.code)}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ padding: 12, paddingBottom: 24 }}
         initialNumToRender={10}
         maxToRenderPerBatch={10}

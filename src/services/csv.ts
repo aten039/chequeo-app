@@ -44,15 +44,14 @@ export function formatShortDate(value: string | Date = new Date()) {
 }
 
 export function priceChecksToCsv(rows: PriceCheck[]) {
-  const columns = ['codigo', 'competidor', 'precio', 'marca', 'estado', 'observacion', 'fecha'];
+  const columns = ['codigo', 'relacion', 'competidor', 'precio', 'fecha', 'observacion'];
   const body = rows.map((row) => [
     row.productCode,
-    row.competitor,
-    row.price,
-    row.brand ?? '',
     row.status,
-    row.notes ?? '',
+    row.competitor,
+    String(row.price).replace('.', ','),
     formatShortDate(row.createdAt),
+    row.notes ?? '',
   ].join(';'));
   return [columns.join(';'), ...body].join('\n');
 }

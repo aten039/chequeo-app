@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Linking, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Keyboard, Linking, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { ChevronDown, ChevronUp, Edit3, Image as ImageIcon, Save } from 'lucide-react-native';
 import { PriceCheck, Product } from '../database/types';
 import { savePriceCheck, updatePriceCheck } from '../database/database';
@@ -12,17 +12,26 @@ type ProductCardProps = {
   onRecordsChange: (records: PriceCheck[]) => void;
 };
 
+function parsePrice(value: string) {
+  return Number(value.trim().replace(',', '.'));
+}
+
+function formatPrice(value: number) {
+  return String(value).replace('.', ',');
+}
+
 export default function ProductCard({ product, globalCompetitor, records, onRecordsChange }: ProductCardProps) {
   const { colors } = useTheme();
   const [expanded, setExpanded] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [precio, setPrecio] = useState('');
   const [marca, setMarca] = useState('');
-  const [status, setStatus] = useState<PriceCheck['status'] | ''>('');
+  const [status, setStatus] = useState<PriceCheck['status'] | ''>('Igual');
   const [notas, setNotas] = useState('');
   const [saveMessage, setSaveMessage] = useState<{ text: string; isError: boolean } | null>(null);
   const messageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isValid = precio.trim() !== '' && status !== '';
+  const parsedPrice = parsePrice(precio);
+  const isValid = precio.trim() !== '' && Number.isFinite(parsedPrice) && status !== '';
 
   useEffect(() => () => {
     if (messageTimer.current) clearTimeout(messageTimer.current);
@@ -37,7 +46,7 @@ export default function ProductCard({ product, globalCompetitor, records, onReco
   const resetForm = () => {
     setPrecio('');
     setMarca('');
-    setStatus('');
+    setStatus('Igual');
     setNotas('');
     setEditingId(null);
   };
@@ -50,10 +59,11 @@ export default function ProductCard({ product, globalCompetitor, records, onReco
 
   const handleSave = () => {
     if (!isValid) return;
+    Keyboard.dismiss();
     const data = {
       productCode: product.code,
       competitor: globalCompetitor,
-      price: Number(precio),
+      price: parsedPrice,
       brand: marca.trim() || null,
       status: status as PriceCheck['status'],
       notes: notas.trim() || null,
@@ -79,7 +89,7 @@ export default function ProductCard({ product, globalCompetitor, records, onReco
   const handleEdit = (record: PriceCheck) => {
     setSaveMessage(null);
     setEditingId(record.id);
-    setPrecio(String(record.price));
+    setPrecio(formatPrice(record.price));
     setMarca(record.brand ?? '');
     setStatus(record.status);
     setNotas(record.notes ?? '');
@@ -142,7 +152,7 @@ export default function ProductCard({ product, globalCompetitor, records, onReco
               {records.map((record) => (
                 <View key={record.id} className="border rounded-lg p-3 mb-2 flex-row items-center justify-between" style={{ backgroundColor: colors.surface, borderColor: colors.equalTint }}>
                   <View className="flex-1 mr-2">
-                    <Text className="text-sm font-bold" style={{ color: colors.text }}>${record.price} · {record.competitor}</Text>
+                    <Text className="text-sm font-bold" style={{ color: colors.text }}>${formatPrice(record.price)} · {record.competitor}</Text>
                     <Text className="text-sm" style={{ color: record.status === 'Igual' ? colors.equal : colors.similar }}>{record.status}{record.brand ? ` · ${record.brand}` : ''} · {record.notes && <Text className="text-sm mt-1 text-wrap" style={{ color: colors.muted }}>{record.notes}</Text>}</Text>
                     
                   </View>
