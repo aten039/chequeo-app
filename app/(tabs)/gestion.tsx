@@ -7,6 +7,7 @@ import { Database, Download, Moon, Sun, Trash2, Upload } from 'lucide-react-nati
 import { clearDatabase, initializeDatabase, listPriceChecks, replaceCompetitors, replaceProducts } from '../../src/database/database';
 import { parseCompetitorsCsv, parseProductsCsv, priceChecksToCsv } from '../../src/services/csv';
 import { useTheme } from '../../src/theme/ThemeContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function GestionScreen() {
   const { colors, isDark, toggleTheme } = useTheme();
@@ -94,7 +95,8 @@ export default function GestionScreen() {
   };
 
   return (
-    <ScrollView className="flex-1 p-4" contentContainerStyle={{ paddingBottom: 110 }} style={{ backgroundColor: colors.background }}>
+    <SafeAreaView className="flex-1" edges={['top']}>
+    <ScrollView className="flex-1 p-4" contentContainerStyle={{ paddingBottom: 50 }} style={{ backgroundColor: colors.background }}>
       <TouchableOpacity onPress={toggleTheme} className="mb-4 py-3 rounded-xl flex-row justify-center items-center" style={{ backgroundColor: colors.primaryTint }}>
         {isDark ? <Sun color={colors.primary} size={20} /> : <Moon color={colors.primary} size={20} />}
         <Text className="font-bold ml-2" style={{ color: colors.primary }}>{isDark ? 'Activar modo claro' : 'Activar modo oscuro'}</Text>
@@ -168,5 +170,6 @@ export default function GestionScreen() {
       </View>
 
     </ScrollView>
+    </SafeAreaView>
   );
 }
