@@ -27,6 +27,12 @@
       "expo-router",
       "expo-status-bar",
       "expo-sqlite"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "56902e08-874d-48fd-9f45-4a4d30f943ac"
+      }
+    }
   }
 }
