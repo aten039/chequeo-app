@@ -44,7 +44,7 @@ export function formatShortDate(value: string | Date = new Date()) {
 }
 
 export function priceChecksToCsv(rows: PriceCheck[]) {
-  const columns = ['codigo', 'relacion', 'brand' ,'competidor', 'precio', 'fecha', 'observacion'];
+  const columns = ['codigo', 'relacion', 'marca' ,'competidor', 'precio', 'fecha', 'observacion'];
   const body = rows.map((row) => [
     row.productCode,
     row.status,
