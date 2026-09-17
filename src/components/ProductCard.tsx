@@ -56,6 +56,10 @@ export default function ProductCard({ product, globalCompetitor, records, onReco
     const url = `https://www.google.com/search?tbm=isch&q=${query}`;
     if (await Linking.canOpenURL(url)) await Linking.openURL(url);
   };
+  const handleEpaSearch = async () => {
+    const url = `https://ve.epaenlinea.com/catalogsearch/result/?q=${product.code}`;
+    if (await Linking.canOpenURL(url)) await Linking.openURL(url);
+  };
 
   const handleSave = () => {
     if (!isValid) return;
@@ -141,10 +145,19 @@ export default function ProductCard({ product, globalCompetitor, records, onReco
       {expanded && (
         <View className="px-4 pb-4 border-t pt-3" style={{ backgroundColor: colors.expanded, borderTopColor: colors.border }}>
           <TextInput className="border rounded-xl px-3 py-3 text-sm mb-3" style={{ backgroundColor: colors.input, borderColor: colors.border, color: colors.text }} placeholder="Notas u observaciones (opcional)" placeholderTextColor={colors.muted} multiline value={notas} onChangeText={setNotas} />
-          <TouchableOpacity onPress={handleGoogleSearch} className="border py-3 rounded-xl flex-row justify-center items-center" style={{ backgroundColor: colors.input, borderColor: colors.border }}>
+          
+          <View className='flex-row justify-center gap-5 items-center'>
+            <TouchableOpacity onPress={handleGoogleSearch} className="border p-3 rounded-xl flex-row justify-center items-center " style={{ backgroundColor: colors.input, borderColor: colors.border }}>
             <ImageIcon color={colors.primary} size={18} />
-            <Text className="font-bold ml-2 text-sm" style={{ color: colors.primary }}>Ver imagen de referencia en web</Text>
-          </TouchableOpacity>
+            <Text className="font-bold ml-2 text-sm" style={{ color: colors.primary }}>referencia en web</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={handleEpaSearch} className="border p-3 rounded-xl flex-row justify-center items-center " style={{ backgroundColor: colors.input, borderColor: colors.border }}>
+            <ImageIcon color={colors.epa} size={18} />
+            <Text className="font-bold ml-2 text-sm" style={{ color: colors.epa }}>referencia en EPA</Text>
+            </TouchableOpacity>
+          </View>
+          
 
           {records.length > 0 && (
             <View className="mt-3">

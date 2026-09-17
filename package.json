@@ -29,7 +29,7 @@
     "mobile": "expo start --tunnel",
     "build:android": "eas build --platform android --profile preview",
     "build:ios": "eas build --platform ios --profile preview",
-    "build:production": "eas build --platform all --profile production"
+    "build:production": "eas build --platform android --profile production"
   },
   "private": true,
   "devDependencies": {

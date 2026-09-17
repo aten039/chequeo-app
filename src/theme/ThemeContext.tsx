@@ -2,6 +2,7 @@ import React, { createContext, useContext, useMemo, useState } from 'react';
 import { StatusBar } from 'react-native';
 
 const lightColors = {
+  epa: '#FFDE21',
   background: '#F2F2F2',
   surface: '#FFFFFF',
   expanded: '#FFFFFF',
@@ -19,6 +20,7 @@ const lightColors = {
 };
 
 const darkColors = {
+  epa: '#FFDE21',
   background: '#111827',
   surface: '#1F2937',
   expanded: '#1F2937',
