@@ -58,7 +58,7 @@ export function readCsvRows(csv: string): string[][] {
   if (row.some((cell) => cell !== '')) rows.push(row);
   if (quoted) throw new Error('El CSV contiene comillas sin cerrar.');
 
-  const firstRow = rows[0]?.join(';').toLowerCase() ?? '';
-  const hasHeader = /categor[ií]a|c[oó]digo|code|descripci[oó]n|proveedor|nombre|competidor|imagen|image|enlace|link|url/.test(firstRow);
+  const headerCellPattern = /^(categor[ií]a|c[oó]digo|code|descripci[oó]n|proveedor|nombre|competidor|imagen(?:es)?|image|enlace|link|url)(?:$|[\s_-])/;
+  const hasHeader = rows[0]?.some((cell) => headerCellPattern.test(cell.trim().toLowerCase())) ?? false;
   return hasHeader ? rows.slice(1) : rows;
 }

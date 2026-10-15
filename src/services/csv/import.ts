@@ -18,10 +18,34 @@ export function parseCompetitorsCsv(csv: string): Competitor[] {
 }
 
 export function parseProductImagesCsv(csv: string): ProductImage[] {
-  return readCsvRows(csv).map(([code, link]) => {
-    if (!code || !link) throw new Error('El CSV de imágenes tiene filas incompletas.');
+  const seenCodes = new Set<number>();
+
+  return readCsvRows(csv).map(([code, rawLink], index) => {
+    const recordNumber = index + 1;
+    const link = rawLink?.trim();
+    if (!code || !link) {
+      throw new Error(`El registro ${recordNumber} del CSV de imágenes está incompleto.`);
+    }
     const numericCode = Number(code);
-    if (!Number.isInteger(numericCode)) throw new Error(`Código de producto inválido: ${code}`);
-    return { code: numericCode, link };
+    if (!Number.isInteger(numericCode)) {
+      throw new Error(`Código de producto inválido en el registro ${recordNumber}: ${code}`);
+    }
+    if (seenCodes.has(numericCode)) {
+      throw new Error(`El código ${numericCode} está duplicado en el CSV de imágenes (registro ${recordNumber}).`);
+    }
+
+    let imageUrl: URL;
+    try {
+      imageUrl = new URL(link);
+    } catch {
+      throw new Error(`URL inválida en el CSV de imágenes (registro ${recordNumber}, código ${numericCode}).`);
+    }
+
+    if (!['http:', 'https:'].includes(imageUrl.protocol) || !imageUrl.hostname) {
+      throw new Error(`La imagen del registro ${recordNumber} debe tener una URL completa HTTP o HTTPS.`);
+    }
+
+    seenCodes.add(numericCode);
+    return { code: numericCode, link: imageUrl.toString() };
   });
 }

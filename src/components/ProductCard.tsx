@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { memo, useEffect, useRef, useState } from 'react';
 import { Image } from 'expo-image';
-import { ActivityIndicator, Keyboard, Linking, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Linking, Pressable, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { ChevronDown, ChevronUp, Edit3, Image as ImageIcon, Save } from 'lucide-react-native';
 import { PriceCheck, Product } from '../database/types';
 import { getProductImageLink, savePriceCheck, updatePriceCheck } from '../database/database';
@@ -8,9 +8,11 @@ import { useTheme } from '../theme/ThemeContext';
 
 type ProductCardProps = {
   product: Product;
-  globalCompetitor: string;
+  getSelectedCompetitor: () => string;
+  isChecked: boolean;
   records: PriceCheck[];
-  onRecordsChange: (records: PriceCheck[]) => void;
+  onRecordsNeedLoad: (productCode: number) => void;
+  onRecordsChange: (productCode: number, records: PriceCheck[]) => void;
 };
 
 function parsePrice(value: string) {
@@ -21,7 +23,7 @@ function formatPrice(value: number) {
   return String(value).replace('.', ',');
 }
 
-export default function ProductCard({ product, globalCompetitor, records, onRecordsChange }: ProductCardProps) {
+function ProductCard({ product, getSelectedCompetitor, isChecked, records, onRecordsNeedLoad, onRecordsChange }: ProductCardProps) {
   const { colors } = useTheme();
   const [expanded, setExpanded] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -31,12 +33,23 @@ export default function ProductCard({ product, globalCompetitor, records, onReco
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageStatus, setImageStatus] = useState<'idle' | 'loading' | 'loaded' | 'unavailable' | 'error'>('idle');
   const [imageError, setImageError] = useState<string | null>(null);
+  const [imageKey, setImageKey] = useState(0);
   const [saveMessage, setSaveMessage] = useState<{ text: string; isError: boolean } | null>(null);
   const messageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const parsedPrice = parsePrice(precio);
   const isValid = precio.trim() !== '' && Number.isFinite(parsedPrice) && status !== '';
+  const startImageLoad = () => {
+    setImageError(null);
+    setImageStatus('loading');
+  };
+  useEffect(() => {
+    if (expanded) onRecordsNeedLoad(product.code);
+  }, [expanded, onRecordsNeedLoad, product.code]);
+
   useEffect(() => {
     if (!expanded) {
+      setImageUrl(null);
+      setImageError(null);
       setImageStatus('idle');
       return;
     }
@@ -53,8 +66,7 @@ export default function ProductCard({ product, globalCompetitor, records, onReco
         setImageStatus('error');
       } else {
         setImageUrl(link);
-        setImageError(null);
-        setImageStatus('loading');
+        startImageLoad();
       }
     } catch (error) {
       setImageUrl(null);
@@ -62,17 +74,6 @@ export default function ProductCard({ product, globalCompetitor, records, onReco
       setImageStatus('error');
     }
   }, [expanded, product]);
-
-  useEffect(() => {
-    if (imageStatus !== 'loading') return;
-
-    const timeout = setTimeout(() => {
-      setImageError('La imagen tardó demasiado en responder.');
-      setImageStatus('error');
-    }, 15000);
-
-    return () => clearTimeout(timeout);
-  }, [imageStatus]);
 
   useEffect(() => () => {
     if (messageTimer.current) clearTimeout(messageTimer.current);
@@ -104,9 +105,10 @@ export default function ProductCard({ product, globalCompetitor, records, onReco
   const handleSave = () => {
     if (!isValid) return;
     Keyboard.dismiss();
+    const existingRecord = editingId === null ? undefined : records.find((item) => item.id === editingId);
     const data = {
       productCode: product.code,
-      competitor: globalCompetitor,
+      competitor: existingRecord?.competitor ?? getSelectedCompetitor(),
       price: parsedPrice,
       brand: marca.trim() || null,
       status: status as PriceCheck['status'],
@@ -115,12 +117,12 @@ export default function ProductCard({ product, globalCompetitor, records, onReco
     try {
       if (editingId === null) {
         const record = savePriceCheck(data);
-        onRecordsChange([record, ...records]);
+        onRecordsChange(product.code, [record, ...records]);
         showSaveMessage('Registro guardado');
       } else {
         const record = { ...data, id: editingId, createdAt: records.find((item) => item.id === editingId)?.createdAt ?? new Date().toISOString() };
         updatePriceCheck(record);
-        onRecordsChange(records.map((item) => (item.id === editingId ? record : item)));
+        onRecordsChange(product.code, records.map((item) => (item.id === editingId ? record : item)));
         showSaveMessage('Registro actualizado');
       }
       resetForm();
@@ -138,8 +140,13 @@ export default function ProductCard({ product, globalCompetitor, records, onReco
     setExpanded(true);
   };
 
+  const retryImage = () => {
+    setImageKey((key) => key + 1);
+    startImageLoad();
+  };
+
   return (
-    <View className="relative mb-3 rounded-2xl border overflow-hidden" style={{ backgroundColor: colors.surface, borderColor: records.length ? colors.equal : colors.border }}>
+    <View className="relative mb-3 rounded-2xl border overflow-hidden" style={{ backgroundColor: colors.surface, borderColor: isChecked ? colors.equal : colors.border }}>
       {saveMessage && (
         <View className="absolute top-2 right-3 z-10 rounded-full px-3 py-1" style={{ backgroundColor: saveMessage.isError ? colors.similarTint : colors.equalTint }}>
           <Text className="text-xs font-bold" style={{ color: saveMessage.isError ? colors.similar : colors.equal }}>{saveMessage.text}</Text>
@@ -185,10 +192,14 @@ export default function ProductCard({ product, globalCompetitor, records, onReco
           <View className="mx-4 mb-4 rounded-xl overflow-hidden items-center justify-center" style={{ height: 160, backgroundColor: colors.input }}>
             {imageUrl && (imageStatus === 'loading' || imageStatus === 'loaded') ? (
               <Image
+                key={imageKey}
                 source={{ uri: imageUrl }}
                 contentFit="contain"
-                cachePolicy="disk"
-                onLoad={() => setImageStatus('loaded')}
+                cachePolicy="memory-disk"
+                onLoad={() => {
+                  setImageError(null);
+                  setImageStatus('loaded');
+                }}
                 onError={(event) => {
                   setImageError(event.error || 'El servidor no pudo entregar la imagen.');
                   setImageStatus('error');
@@ -206,8 +217,13 @@ export default function ProductCard({ product, globalCompetitor, records, onReco
               <View className="items-center">
                 <ImageIcon color={imageStatus === 'error' ? colors.similar : colors.muted} size={28} />
                 <Text className="text-xs mt-2 text-center" style={{ color: imageStatus === 'error' ? colors.similar : colors.muted }}>
-                  {imageStatus === 'error' ? imageError : 'No hay imagen registrada'}
+                  {imageStatus === 'error' ? `Ocurrió un error al cargar la imagen. ${imageError ?? 'Error desconocido.'}` : 'No hay imagen registrada'}
                 </Text>
+                {imageStatus === 'error' && (
+                  <Pressable onPress={retryImage} className="mt-2 rounded-lg px-3 py-2" style={{ backgroundColor: colors.primaryTint }}>
+                    <Text className="text-xs font-bold" style={{ color: colors.primary }}>Reintentar</Text>
+                  </Pressable>
+                )}
               </View>
             )}
           </View>
@@ -245,3 +261,5 @@ export default function ProductCard({ product, globalCompetitor, records, onReco
     </View>
   );
 }
+
+export default memo(ProductCard);

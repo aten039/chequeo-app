@@ -1,194 +1,131 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { FlatList, Modal, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
+import { CheckCircle2, Home, Package, Sparkles, Store } from 'lucide-react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronDown, Search, Store } from 'lucide-react-native';
-import ProductCard from '../../src/components/ProductCard';
-import { PriceCheck, Product } from '../../src/database/types';
-import { listCompetitors, listPriceChecks, listProducts } from '../../src/database/database';
+import { useCompetitorSelection } from '../../src/context/CompetitorSelectionContext';
+import { listCheckedProductCodes, listCompetitors, listProducts } from '../../src/database/database';
 import { useTheme } from '../../src/theme/ThemeContext';
-
-type ProgressFilter = 'Todos' | 'Pendientes' | 'Chequeados';
 
 export default function HomeScreen() {
   const { colors } = useTheme();
-  const [products, setProducts] = useState<Product[]>([]);
+  const { selectedCompetitor, setSelectedCompetitor } = useCompetitorSelection();
   const [competitors, setCompetitors] = useState<string[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [globalCompetitor, setGlobalCompetitor] = useState('');
-  const [competitorOpen, setCompetitorOpen] = useState(false);
-  const [category, setCategory] = useState('Todas');
-  const [categoryOpen, setCategoryOpen] = useState(false);
-  const [progressFilter, setProgressFilter] = useState<ProgressFilter>('Todos');
-  const [recordsByProduct, setRecordsByProduct] = useState<Record<string, PriceCheck[]>>({});
-
-  // Carga inicial de datos desde la base de datos
+  const [productCount, setProductCount] = useState(0);
+  const [checkedCount, setCheckedCount] = useState(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const loadData = useCallback(() => {
-    const loadedProducts = listProducts();
-    const loadedCompetitors = listCompetitors();
-    const records = listPriceChecks();
-    setProducts(loadedProducts);
-    setCompetitors(loadedCompetitors);
-    setGlobalCompetitor((current) => current && loadedCompetitors.includes(current) ? current : loadedCompetitors[0]);
-    setRecordsByProduct(records.reduce<Record<string, PriceCheck[]>>((result, record) => {
-      result[String(record.productCode)] = [...(result[String(record.productCode)] ?? []), record];
-      return result;
-    }, {}));
-  }, []);
+    try {
+      const products = listProducts();
+      const checkedProductCodes = listCheckedProductCodes();
+      const loadedCompetitors = listCompetitors();
+      setCompetitors(loadedCompetitors);
+      setSelectedCompetitor((current) => current && loadedCompetitors.includes(current) ? current : '');
+      setProductCount(products.length);
+      setCheckedCount(checkedProductCodes.length);
+      setLoadError(null);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'No se pudieron cargar los datos.');
+    }
+  }, [setSelectedCompetitor]);
 
   useFocusEffect(loadData);
 
-  // Filtra los productos según los criterios de búsqueda, categoría y progreso
-  const visibleProducts = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase();
-    return products.filter((product) => {
-      const matchesSearch = !query || `${product.code} ${product.codExt ?? ''} ${product.desc} ${product.prov}`.toLowerCase().includes(query);
-      const matchesCategory = category === 'Todas' || product.category === category;
-      const isChecked = Boolean(recordsByProduct[String(product.code)]?.length);
-      const matchesProgress = progressFilter === 'Todos'
-        || (progressFilter === 'Chequeados' ? isChecked : !isChecked);
-      return matchesSearch && matchesCategory && matchesProgress;
-    });
-  }, [category, products, progressFilter, recordsByProduct, searchTerm]);
-
-  const checkedCount = Object.keys(recordsByProduct).filter((productId) => recordsByProduct[productId]?.length).length;
-  const categories = ['Todas', ...Array.from(new Set(products.map((product) => product.category)))];
-
   return (
-    <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }} edges={['top']}>
-      <View className="px-4 pt-2 pb-1 flex-row items-center justify-between" style={{ backgroundColor: colors.surface }}>
-        <Text className="text-base font-bold" style={{ color: colors.text }}>Chequeo App</Text>
-        <Text className="text-[13px] font-bold" style={{ color: colors.muted }}>Progreso: {checkedCount}/{products.length}</Text>
-      </View>
-
-      <View className="px-4 pb-3" style={{ backgroundColor: colors.surface }}>
-        <View className="flex-row items-center border rounded-xl px-4 py-1" style={{ backgroundColor: colors.input, borderColor: colors.border }}>
-          <Search color={colors.muted} size={17} />
-          <TextInput
-            className="flex-1 ml-2 text-sm"
-            placeholderTextColor={colors.muted}
-            style={{ color: colors.text }}
-            placeholder="Buscar por código o nombre..."
-            value={searchTerm}
-            onChangeText={setSearchTerm}
-          />
-        </View>
-
-        <View className="flex-row items-center mt-2 z-30" style={{ elevation: 30 }}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            className="flex-1"
-            contentContainerStyle={{ paddingRight: 8 }}
-          >
-            {(['Todos', 'Pendientes', 'Chequeados'] as ProgressFilter[]).map((option) => (
-              <TouchableOpacity
-                key={option}
-                onPress={() => setProgressFilter(option)}
-                className="px-3 py-1 rounded-full mr-2"
-                style={{ backgroundColor: progressFilter === option ? colors.primary : colors.primaryTint }}
-              >
-                <Text className="text-[11px] font-bold" style={{ color: progressFilter === option ? '#FFFFFF' : colors.primary }}>
-                  {option}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          <View className="w-[116px] relative" style={{ zIndex: 20 }}>
-            <TouchableOpacity
-              onPress={() => setCategoryOpen((open) => !open)}
-              className="flex-row items-center justify-between rounded-full px-3 py-1"
-              style={{ backgroundColor: colors.primaryTint }}
-            >
-              <Text className="text-[13px]" style={{ color: colors.primary }} numberOfLines={1}>
-                {category}
-              </Text>
-              <ChevronDown color={colors.primary} size={14} />
-            </TouchableOpacity>
-            <Modal visible={categoryOpen} transparent animationType="fade" onRequestClose={() => setCategoryOpen(false)}>
-              <Pressable className="flex-1 bg-black/20 justify-center items-center" onPress={() => setCategoryOpen(false)}>
-                <View className="w-4/5 max-h-[300px] rounded-xl border shadow-lg overflow-hidden" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
-                  <Text className="px-4 py-3 font-bold border-b" style={{ color: colors.text, borderBottomColor: colors.border }}>Categoría</Text>
-                  <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator>
-                    {categories.map((option) => (
-                      <Pressable
-                        key={option}
-                        onPress={() => { setCategory(option); setCategoryOpen(false); }}
-                        className="px-4 py-3 border-b"
-                        style={{ borderBottomColor: colors.border }}
-                      >
-                        <Text className="text-[13px]" style={{ color: colors.muted }}>{option}</Text>
-                      </Pressable>
-                    ))}
-                  </ScrollView>
-                </View>
-              </Pressable>
-            </Modal>
+    <SafeAreaView className="flex-1" edges={['top']} style={{ backgroundColor: colors.background }}>
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 28 }} showsVerticalScrollIndicator={false}>
+        <View className="flex-row items-center mb-6">
+          <View className="w-11 h-11 rounded-2xl items-center justify-center mr-3" style={{ backgroundColor: colors.primaryTint }}>
+            <Home color={colors.primary} size={22} />
+          </View>
+          <View>
+            <Text className="text-xs font-bold uppercase tracking-widest" style={{ color: colors.muted }}>Chequeo App</Text>
+            <Text className="text-2xl font-extrabold" style={{ color: colors.text }}>Inicio</Text>
           </View>
         </View>
 
-        <View className="flex-row items-center mt-2 z-20" style={{ elevation: 20 }}>
-          <Store color={colors.muted} size={15} />
-          <Text className="text-[13px] font-bold uppercase ml-1 mr-2" style={{ color: colors.muted }}>Competidor</Text>
-          <View className="flex-1 relative" style={{ zIndex: 10 }}>
-            <TouchableOpacity
-              onPress={() => setCompetitorOpen((open) => !open)}
-              className="flex-row items-center justify-between border-b py-1"
-              style={{ borderBottomColor: colors.primary }}
-            >
-              <Text className="text-[13px] font-bold" style={{ color: colors.text }} numberOfLines={1}>{globalCompetitor}</Text>
-              <ChevronDown color={colors.muted} size={15} />
-            </TouchableOpacity>
-            <Modal visible={competitorOpen} transparent animationType="fade" onRequestClose={() => setCompetitorOpen(false)}>
-              <Pressable className="flex-1 bg-black/20 justify-center items-center" onPress={() => setCompetitorOpen(false)}>
-                <View className="w-4/5 max-h-[320px] rounded-xl border shadow-lg overflow-hidden" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
-                  <Text className="px-4 py-3 font-bold border-b" style={{ color: colors.text, borderBottomColor: colors.border }}>Competidor</Text>
-                  <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator>
-                    {competitors.length === 0 ? (
-                      <Text className="px-4 py-3" style={{ color: colors.muted }}>No hay competidores cargados</Text>
-                    ) : (
-                      competitors.map((competitor) => (
-                        <Pressable
-                          key={competitor}
-                          onPress={() => {
-                            setGlobalCompetitor(competitor);
-                            setCompetitorOpen(false);
-                          }}
-                          className="px-4 py-3 border-b"
-                          style={{ borderBottomColor: colors.border }}
-                        >
-                          <Text className="text-[13px]" style={{ color: colors.muted }}>{competitor}</Text>
-                        </Pressable>
-                      ))
-                    )}
-                  </ScrollView>
-                </View>
-              </Pressable>
-            </Modal>
+        <View className="rounded-2xl border p-5 mb-6" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
+          <View className="flex-row items-center mb-3">
+            <View className="w-9 h-9 rounded-xl items-center justify-center" style={{ backgroundColor: colors.primaryTint }}>
+              <Sparkles color={colors.primary} size={17} />
+            </View>
+            <Text className="text-xs font-bold uppercase tracking-widest ml-3" style={{ color: colors.primary }}>Listo para empezar</Text>
+          </View>
+          <Text className="text-xl font-extrabold" style={{ color: colors.text }}>¿A quién vas a revisar hoy?</Text>
+          <Text className="text-sm mt-2" style={{ color: colors.muted }}>
+            Selecciona un competidor para asociarlo a tus próximos registros.
+          </Text>
+        </View>
+
+        <View className="rounded-2xl border p-5 mb-4" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
+          <View className="flex-row items-center justify-between mb-4">
+            <View className="flex-1 mr-3">
+              <Text className="text-lg font-bold" style={{ color: colors.text }}>Competidores</Text>
+              <Text className="text-sm mt-1" style={{ color: colors.muted }}>Selecciona el competidor de tus próximos registros</Text>
+            </View>
+            <View className="w-10 h-10 rounded-xl items-center justify-center" style={{ backgroundColor: colors.primaryTint }}>
+              <Store color={colors.primary} size={20} />
+            </View>
+          </View>
+
+          {loadError ? (
+            <Text className="text-sm" style={{ color: colors.similar }}>No se pudieron cargar los competidores: {loadError}</Text>
+          ) : competitors.length === 0 ? (
+            <Text className="text-sm" style={{ color: colors.muted }}>Aún no hay competidores. Carga la lista desde Gestión para empezar.</Text>
+          ) : (
+            competitors.map((competitor, index) => {
+              const isSelected = selectedCompetitor === competitor;
+              return (
+                <Pressable
+                  key={`${competitor}-${index}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Seleccionar ${competitor}`}
+                  accessibilityState={{ selected: isSelected }}
+                  android_ripple={{ color: isSelected ? colors.primaryPressed : colors.border, borderless: false }}
+                  onPress={() => setSelectedCompetitor(competitor)}
+                  className="flex-row items-center border py-4 px-4 rounded-xl mb-3"
+                  style={{
+                    backgroundColor: isSelected ? colors.primary : colors.primaryTint,
+                    borderColor: isSelected ? colors.primary : colors.border,
+                  }}
+                >
+                  <Store color={isSelected ? colors.surface : colors.primary} size={20} />
+                  <Text
+                    className="flex-1 font-bold ml-3"
+                    style={{ color: isSelected ? colors.surface : colors.primary }}
+                    numberOfLines={1}
+                  >
+                    {competitor}
+                  </Text>
+                  {isSelected && <CheckCircle2 color={colors.surface} size={20} />}
+                </Pressable>
+              );
+            })
+          )}
+        </View>
+
+        <View className="flex-row rounded-2xl border p-4 mt-2" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
+          <View className="flex-1 flex-row items-center">
+            <View className="w-10 h-10 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: colors.primaryTint }}>
+              <Package color={colors.primary} size={19} />
+            </View>
+            <View>
+              <Text className="text-lg font-extrabold" style={{ color: colors.text }}>{productCount}</Text>
+              <Text className="text-xs" style={{ color: colors.muted }}>Productos</Text>
+            </View>
+          </View>
+          <View className="w-px mx-3" style={{ backgroundColor: colors.border }} />
+          <View className="flex-1 flex-row items-center">
+            <View className="w-10 h-10 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: colors.equalTint }}>
+              <CheckCircle2 color={colors.equal} size={19} />
+            </View>
+            <View>
+              <Text className="text-lg font-extrabold" style={{ color: colors.text }}>{checkedCount}</Text>
+              <Text className="text-xs" style={{ color: colors.muted }}>Revisados</Text>
+            </View>
           </View>
         </View>
-      </View>
-
-      <FlatList
-        data={visibleProducts}
-        keyExtractor={(item) => String(item.code)}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ padding: 12, paddingBottom: 24 }}
-        initialNumToRender={20}
-        maxToRenderPerBatch={20}
-        windowSize={5}
-        removeClippedSubviews
-        renderItem={({ item }) => (
-          <ProductCard
-            product={item}
-            globalCompetitor={globalCompetitor}
-            records={recordsByProduct[String(item.code)] ?? []}
-            onRecordsChange={(records) => setRecordsByProduct((current) => ({ ...current, [String(item.code)]: records }))}
-          />
-        )}
-        ListEmptyComponent={<Text className="text-center mt-8" style={{ color: colors.muted }}>No hay productos con estos filtros.</Text>}
-      />
+      </ScrollView>
     </SafeAreaView>
   );
 }

@@ -3,6 +3,7 @@ import { PriceCheck, Product, ProductImage } from './types';
 
 const database = SQLite.openDatabaseSync('chequeo-precios-dev.db');
 let databaseInitialized = false;
+let productsCache: Product[] | null = null;
 
 export function initializeDatabase() {
   if (databaseInitialized) return;
@@ -36,6 +37,7 @@ export function initializeDatabase() {
         created_at TEXT NOT NULL,
         FOREIGN KEY (product_code) REFERENCES products(code) ON DELETE CASCADE
       );
+      CREATE INDEX IF NOT EXISTS register_product_code_idx ON register(product_code);
     `);
   });
 
@@ -66,6 +68,7 @@ export function clearDatabase() {
       DELETE FROM sqlite_sequence WHERE name = 'register';
     `);
   });
+  productsCache = null;
 }
 
 export function replaceProducts(products: Product[]) {
@@ -83,6 +86,7 @@ export function replaceProducts(products: Product[]) {
       );
     }
   });
+  productsCache = null;
 }
 
 export function replaceCompetitors(names: string[]) {
@@ -114,7 +118,9 @@ export function getProductImageLink(productCode: number): string | null {
 
 export function listProducts(): Product[] {
   ensureDatabase();
-  return database.getAllSync<Product>('SELECT category, code, description AS desc, provider AS prov, cod_ext AS codExt FROM products ORDER BY code');
+  if (productsCache) return productsCache;
+  productsCache = database.getAllSync<Product>('SELECT category, code, description AS desc, provider AS prov, cod_ext AS codExt FROM products ORDER BY code');
+  return productsCache;
 }
 
 export function listCompetitors(): string[] {
@@ -146,6 +152,17 @@ export function listPriceChecks(): PriceCheck[] {
   return database.getAllSync<PriceCheck>('SELECT id, product_code AS productCode, competitor, price, brand, status, created_at AS createdAt FROM register ORDER BY id DESC');
 }
 
-export function listPriceChecksForProduct(productCode: number) {
-  return listPriceChecks().filter((check) => check.productCode === productCode);
+export function listCheckedProductCodes(): number[] {
+  ensureDatabase();
+  return database.getAllSync<{ productCode: number }>(
+    'SELECT DISTINCT product_code AS productCode FROM register',
+  ).map((row) => row.productCode);
+}
+
+export function listPriceChecksForProduct(productCode: number): PriceCheck[] {
+  ensureDatabase();
+  return database.getAllSync<PriceCheck>(
+    'SELECT id, product_code AS productCode, competitor, price, brand, status, created_at AS createdAt FROM register WHERE product_code = ? ORDER BY id DESC',
+    productCode,
+  );
 }

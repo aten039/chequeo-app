@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import '../global.css';
+import { CompetitorSelectionProvider } from '../src/context/CompetitorSelectionContext';
 import { initializeDatabase } from '../src/database/database';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeContext';
 
@@ -47,7 +48,9 @@ function RootContent() {
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <RootContent />
+      <CompetitorSelectionProvider>
+        <RootContent />
+      </CompetitorSelectionProvider>
     </ThemeProvider>
   );
 }
