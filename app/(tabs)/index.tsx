@@ -22,6 +22,7 @@ export default function HomeScreen() {
   const [progressFilter, setProgressFilter] = useState<ProgressFilter>('Todos');
   const [recordsByProduct, setRecordsByProduct] = useState<Record<string, PriceCheck[]>>({});
 
+  // Carga inicial de datos desde la base de datos
   const loadData = useCallback(() => {
     const loadedProducts = listProducts();
     const loadedCompetitors = listCompetitors();
@@ -37,10 +38,11 @@ export default function HomeScreen() {
 
   useFocusEffect(loadData);
 
+  // Filtra los productos según los criterios de búsqueda, categoría y progreso
   const visibleProducts = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
     return products.filter((product) => {
-      const matchesSearch = !query || `${product.code} ${product.codExt ?? ''} ${product.desc}`.toLowerCase().includes(query);
+      const matchesSearch = !query || `${product.code} ${product.codExt ?? ''} ${product.desc} ${product.prov}`.toLowerCase().includes(query);
       const matchesCategory = category === 'Todas' || product.category === category;
       const isChecked = Boolean(recordsByProduct[String(product.code)]?.length);
       const matchesProgress = progressFilter === 'Todos'
@@ -173,8 +175,8 @@ export default function HomeScreen() {
         keyExtractor={(item) => String(item.code)}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ padding: 12, paddingBottom: 24 }}
-        initialNumToRender={10}
-        maxToRenderPerBatch={10}
+        initialNumToRender={20}
+        maxToRenderPerBatch={20}
         windowSize={5}
         removeClippedSubviews
         renderItem={({ item }) => (

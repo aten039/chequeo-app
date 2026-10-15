@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Database, Search } from 'lucide-react-native';
+import { Database, ScanLine, Search } from 'lucide-react-native';
 import { useTheme } from '../../src/theme/ThemeContext';
 
 export default function TabsLayout() {
@@ -11,6 +11,13 @@ export default function TabsLayout() {
         options={{
           title: 'Revision',
           tabBarIcon: ({ color, size }) => <Search color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="scan"
+        options={{
+          title: 'Escanear',
+          tabBarIcon: ({ color, size }) => <ScanLine color={color} size={size} />,
         }}
       />
       <Tabs.Screen

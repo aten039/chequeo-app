@@ -10,6 +10,11 @@ export type Competitor = {
   name: string;
 };
 
+export type ProductImage = {
+  code: number;
+  link: string;
+};
+
 export type PriceCheck = {
   id: number;
   productCode: number;
@@ -17,6 +22,5 @@ export type PriceCheck = {
   price: number;
   brand: string | null;
   status: 'Igual' | 'Similar';
-  notes: string | null;
   createdAt: string;
 };

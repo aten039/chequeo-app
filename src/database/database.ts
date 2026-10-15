@@ -1,5 +1,5 @@
 import * as SQLite from 'expo-sqlite';
-import { PriceCheck, Product } from './types';
+import { PriceCheck, Product, ProductImage } from './types';
 
 const database = SQLite.openDatabaseSync('chequeo-precios-dev.db');
 let databaseInitialized = false;
@@ -18,8 +18,14 @@ export function initializeDatabase() {
         cod_ext TEXT
       );
       CREATE TABLE IF NOT EXISTS competitors (
-        nombre TEXT PRIMARY KEY NOT NULL
+        name TEXT PRIMARY KEY NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS images (
+        code INTEGER PRIMARY KEY NOT NULL,
+        link TEXT NOT NULL
+      );
+
       CREATE TABLE IF NOT EXISTS register (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         product_code INTEGER NOT NULL,
@@ -27,12 +33,21 @@ export function initializeDatabase() {
         price REAL NOT NULL,
         brand TEXT,
         status TEXT NOT NULL CHECK (status IN ('Igual', 'Similar')),
-        notes TEXT,
         created_at TEXT NOT NULL,
         FOREIGN KEY (product_code) REFERENCES products(code) ON DELETE CASCADE
       );
     `);
   });
+
+  const competitorColumns = database.getAllSync<{ name: string }>('PRAGMA table_info(competitors)');
+  if (!competitorColumns.some((column) => column.name === 'name')) {
+    if (competitorColumns.some((column) => column.name === 'nombre')) {
+      database.execSync('ALTER TABLE competitors RENAME COLUMN nombre TO name');
+    } else {
+      throw new Error('El esquema de competidores no contiene una columna reconocida.');
+    }
+  }
+
   databaseInitialized = true;
 }
 
@@ -47,6 +62,7 @@ export function clearDatabase() {
       DELETE FROM register;
       DELETE FROM products;
       DELETE FROM competitors;
+      DELETE FROM images;
       DELETE FROM sqlite_sequence WHERE name = 'register';
     `);
   });
@@ -73,8 +89,27 @@ export function replaceCompetitors(names: string[]) {
   ensureDatabase();
   database.withTransactionSync(() => {
     database.runSync('DELETE FROM competitors');
-    for (const name of names) database.runSync('INSERT INTO competitors (nombre) VALUES (?)', name);
+    for (const name of names) database.runSync('INSERT INTO competitors (name) VALUES (?)', name);
   });
+}
+
+export function replaceProductImages(images: ProductImage[]) {
+  ensureDatabase();
+  database.withTransactionSync(() => {
+    database.runSync('DELETE FROM images');
+    for (const image of images) {
+      database.runSync('INSERT INTO images (code, link) VALUES (?, ?)', image.code, image.link);
+    }
+  });
+}
+
+export function getProductImageLink(productCode: number): string | null {
+  ensureDatabase();
+  const image = database.getFirstSync<{ link: string }>(
+    'SELECT link FROM images WHERE code = ?',
+    productCode,
+  );
+  return image?.link ?? null;
 }
 
 export function listProducts(): Product[] {
@@ -84,7 +119,7 @@ export function listProducts(): Product[] {
 
 export function listCompetitors(): string[] {
   ensureDatabase();
-  const names = database.getAllSync<{ nombre: string }>('SELECT nombre FROM competitors ORDER BY nombre').map((row) => row.nombre);
+  const names = database.getAllSync<{ name: string }>('SELECT name FROM competitors ORDER BY name').map((row) => row.name);
   return [...names.filter((name) => name.trim().toLowerCase() !== 'otro'), 'Otro'];
 }
 
@@ -92,8 +127,8 @@ export function savePriceCheck(check: Omit<PriceCheck, 'id' | 'createdAt'>) {
   ensureDatabase();
   const createdAt = new Date().toISOString();
   const result = database.runSync(
-    `INSERT INTO register (product_code, competitor, price, brand, status, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    check.productCode, check.competitor, check.price, check.brand ?? null, check.status, check.notes ?? null, createdAt,
+    `INSERT INTO register (product_code, competitor, price, brand, status, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+    check.productCode, check.competitor, check.price, check.brand ?? null, check.status, createdAt,
   );
   return { ...check, id: result.lastInsertRowId, createdAt };
 }
@@ -101,14 +136,14 @@ export function savePriceCheck(check: Omit<PriceCheck, 'id' | 'createdAt'>) {
 export function updatePriceCheck(check: PriceCheck) {
   ensureDatabase();
   database.runSync(
-    `UPDATE register SET competitor = ?, price = ?, brand = ?, status = ?, notes = ? WHERE id = ?`,
-    check.competitor, check.price, check.brand ?? null, check.status, check.notes ?? null, check.id,
+    `UPDATE register SET competitor = ?, price = ?, brand = ?, status = ? WHERE id = ?`,
+    check.competitor, check.price, check.brand ?? null, check.status, check.id,
   );
 }
 
 export function listPriceChecks(): PriceCheck[] {
   ensureDatabase();
-  return database.getAllSync<PriceCheck>('SELECT id, product_code AS productCode, competitor, price, brand, status, notes, created_at AS createdAt FROM register ORDER BY id DESC');
+  return database.getAllSync<PriceCheck>('SELECT id, product_code AS productCode, competitor, price, brand, status, created_at AS createdAt FROM register ORDER BY id DESC');
 }
 
 export function listPriceChecksForProduct(productCode: number) {

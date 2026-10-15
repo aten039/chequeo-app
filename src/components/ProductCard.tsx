@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Keyboard, Linking, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Image } from 'expo-image';
+import { ActivityIndicator, Keyboard, Linking, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { ChevronDown, ChevronUp, Edit3, Image as ImageIcon, Save } from 'lucide-react-native';
 import { PriceCheck, Product } from '../database/types';
-import { savePriceCheck, updatePriceCheck } from '../database/database';
+import { getProductImageLink, savePriceCheck, updatePriceCheck } from '../database/database';
 import { useTheme } from '../theme/ThemeContext';
 
 type ProductCardProps = {
@@ -27,11 +28,51 @@ export default function ProductCard({ product, globalCompetitor, records, onReco
   const [precio, setPrecio] = useState('');
   const [marca, setMarca] = useState('');
   const [status, setStatus] = useState<PriceCheck['status'] | ''>('Igual');
-  const [notas, setNotas] = useState('');
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageStatus, setImageStatus] = useState<'idle' | 'loading' | 'loaded' | 'unavailable' | 'error'>('idle');
+  const [imageError, setImageError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<{ text: string; isError: boolean } | null>(null);
   const messageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const parsedPrice = parsePrice(precio);
   const isValid = precio.trim() !== '' && Number.isFinite(parsedPrice) && status !== '';
+  useEffect(() => {
+    if (!expanded) {
+      setImageStatus('idle');
+      return;
+    }
+
+    try {
+      const link = getProductImageLink(product.code)?.trim();
+      if (!link) {
+        setImageUrl(null);
+        setImageError(null);
+        setImageStatus('unavailable');
+      } else if (!/^https?:\/\/\S+$/i.test(link)) {
+        setImageUrl(null);
+        setImageError('El enlace guardado no es una URL válida.');
+        setImageStatus('error');
+      } else {
+        setImageUrl(link);
+        setImageError(null);
+        setImageStatus('loading');
+      }
+    } catch (error) {
+      setImageUrl(null);
+      setImageError(error instanceof Error ? error.message : 'No se pudo consultar el enlace de la imagen.');
+      setImageStatus('error');
+    }
+  }, [expanded, product]);
+
+  useEffect(() => {
+    if (imageStatus !== 'loading') return;
+
+    const timeout = setTimeout(() => {
+      setImageError('La imagen tardó demasiado en responder.');
+      setImageStatus('error');
+    }, 15000);
+
+    return () => clearTimeout(timeout);
+  }, [imageStatus]);
 
   useEffect(() => () => {
     if (messageTimer.current) clearTimeout(messageTimer.current);
@@ -47,7 +88,6 @@ export default function ProductCard({ product, globalCompetitor, records, onReco
     setPrecio('');
     setMarca('');
     setStatus('Igual');
-    setNotas('');
     setEditingId(null);
   };
 
@@ -70,7 +110,6 @@ export default function ProductCard({ product, globalCompetitor, records, onReco
       price: parsedPrice,
       brand: marca.trim() || null,
       status: status as PriceCheck['status'],
-      notes: notas.trim() || null,
     };
 
     try {
@@ -96,7 +135,6 @@ export default function ProductCard({ product, globalCompetitor, records, onReco
     setPrecio(formatPrice(record.price));
     setMarca(record.brand ?? '');
     setStatus(record.status);
-    setNotas(record.notes ?? '');
     setExpanded(true);
   };
 
@@ -144,8 +182,35 @@ export default function ProductCard({ product, globalCompetitor, records, onReco
 
       {expanded && (
         <View className="px-4 pb-4 border-t pt-3" style={{ backgroundColor: colors.expanded, borderTopColor: colors.border }}>
-          <TextInput className="border rounded-xl px-3 py-3 text-sm mb-3" style={{ backgroundColor: colors.input, borderColor: colors.border, color: colors.text }} placeholder="Notas u observaciones (opcional)" placeholderTextColor={colors.muted} multiline value={notas} onChangeText={setNotas} />
-          
+          <View className="mx-4 mb-4 rounded-xl overflow-hidden items-center justify-center" style={{ height: 160, backgroundColor: colors.input }}>
+            {imageUrl && (imageStatus === 'loading' || imageStatus === 'loaded') ? (
+              <Image
+                source={{ uri: imageUrl }}
+                contentFit="contain"
+                cachePolicy="disk"
+                onLoad={() => setImageStatus('loaded')}
+                onError={(event) => {
+                  setImageError(event.error || 'El servidor no pudo entregar la imagen.');
+                  setImageStatus('error');
+                }}
+                style={{ width: '100%', height: '100%' }}
+              />
+            ) : null}
+            {imageStatus === 'loading' && (
+              <View className="absolute items-center rounded-xl px-3 py-2" style={{ backgroundColor: colors.surface }}>
+                <ActivityIndicator color={colors.primary} />
+                <Text className="text-xs mt-1" style={{ color: colors.muted }}>Cargando imagen...</Text>
+              </View>
+            )}
+            {(imageStatus === 'unavailable' || imageStatus === 'error') && (
+              <View className="items-center">
+                <ImageIcon color={imageStatus === 'error' ? colors.similar : colors.muted} size={28} />
+                <Text className="text-xs mt-2 text-center" style={{ color: imageStatus === 'error' ? colors.similar : colors.muted }}>
+                  {imageStatus === 'error' ? imageError : 'No hay imagen registrada'}
+                </Text>
+              </View>
+            )}
+          </View>
           <View className='flex-row justify-center gap-5 items-center'>
             <TouchableOpacity onPress={handleGoogleSearch} className="border p-3 rounded-xl flex-row justify-center items-center " style={{ backgroundColor: colors.input, borderColor: colors.border }}>
             <ImageIcon color={colors.primary} size={18} />
@@ -166,8 +231,7 @@ export default function ProductCard({ product, globalCompetitor, records, onReco
                 <View key={record.id} className="border rounded-lg p-3 mb-2 flex-row items-center justify-between" style={{ backgroundColor: colors.surface, borderColor: colors.equalTint }}>
                   <View className="flex-1 mr-2">
                     <Text className="text-sm font-bold" style={{ color: colors.text }}>${formatPrice(record.price)} · {record.competitor}</Text>
-                    <Text className="text-sm" style={{ color: record.status === 'Igual' ? colors.equal : colors.similar }}>{record.status}{record.brand ? ` · ${record.brand}` : ''} · {record.notes && <Text className="text-sm mt-1 text-wrap" style={{ color: colors.muted }}>{record.notes}</Text>}</Text>
-                    
+                    <Text className="text-sm" style={{ color: record.status === 'Igual' ? colors.equal : colors.similar }}>{record.status}{record.brand ? ` · ${record.brand}` : ''}</Text>
                   </View>
                   <TouchableOpacity onPress={() => handleEdit(record)} className="rounded-lg p-2" style={{ backgroundColor: colors.primaryTint }}>
                     <Edit3 color={colors.primary} size={16} />
