@@ -35,7 +35,7 @@ babel.config.js               # Babel de Expo y NativeWind
 - Los componentes de `src/components/` deben ser reutilizables y recibir datos por props.
 - Toda operacion SQLite pertenece a `src/database/`. Usa `types.ts` para contratos compartidos.
 - Toda lectura, validacion o exportacion CSV pertenece a `src/services/`.
-- Los CSV de productos usan Categoría, Código, Código Externo (opcional), Descripción y Proveedor; los de competidores usan Nombre; los de imágenes usan Código y Enlace.
+- Los CSV de productos usan Categoría, Código, Código Externo (opcional), Descripción, Proveedor y Enlace de imagen (opcional); los de competidores usan Nombre.
 - Mantener la aplicacion offline-first: la UI puede trabajar con datos locales y la persistencia debe ser explicita.
 - No mezclar logica de infraestructura con estilos o JSX si puede vivir en una capa inferior.
 - No borrar cambios existentes del usuario. Hacer cambios pequenos y compatibles con las APIs publicas actuales.
@@ -61,7 +61,7 @@ babel.config.js               # Babel de Expo y NativeWind
 - Usar parametros en consultas; nunca interpolar valores del usuario en SQL.
 - Mantener nombres de dominio en `src/database/types.ts` y mapear nombres SQL en los repositorios.
 - La marca de un registro es opcional (`string | null`); no bloquear el guardado por ausencia de marca.
-- Los registros de precios no incluyen notas ni observaciones. Las imágenes se consultan por código desde la tabla `images` y un enlace fallido debe mostrar un marcador alternativo.
+- Los registros de precios no incluyen notas ni observaciones. El enlace de imagen opcional se guarda en el producto; los enlaces inválidos se ignoran durante la importación y deben mostrar el marcador alternativo.
 - Los productos incluyen `category`, cargada desde el CSV y usada por los filtros de la pantalla de revisión.
 - Las migraciones deben ser idempotentes y usar `CREATE TABLE IF NOT EXISTS` o una version de esquema controlada.
 

@@ -4,15 +4,11 @@ export type Product = {
   desc: string;
   prov: string;
   codExt: string | null;
+  link: string | null;
 };
 
 export type Competitor = {
   name: string;
-};
-
-export type ProductImage = {
-  code: number;
-  link: string;
 };
 
 export type PriceCheck = {

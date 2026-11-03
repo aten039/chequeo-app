@@ -114,6 +114,14 @@ export default function RevisionScreen() {
         next.add(productCode);
         return next;
       });
+    } else {
+      checkedProductCodesRef.current.delete(productCode);
+      setCheckedProductCodes((current) => {
+        if (!current.has(productCode)) return current;
+        const next = new Set(current);
+        next.delete(productCode);
+        return next;
+      });
     }
   }, []);
   const renderProduct = useCallback(({ item }: { item: Product }) => (
@@ -206,8 +214,8 @@ export default function RevisionScreen() {
         keyExtractor={(item) => String(item.code)}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ padding: 12, paddingBottom: 24 }}
-        initialNumToRender={10}
-        maxToRenderPerBatch={8}
+        initialNumToRender={20}
+        maxToRenderPerBatch={20}
         updateCellsBatchingPeriod={50}
         windowSize={7}
         removeClippedSubviews={false}

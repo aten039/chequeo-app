@@ -4,8 +4,8 @@ import { File } from 'expo-file-system';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Database, Download, Moon, Sun, Trash2, Upload } from 'lucide-react-native';
-import { clearDatabase, listPriceChecks, replaceCompetitors, replaceProductImages, replaceProducts } from '../../src/database/database';
-import { parseCompetitorsCsv, parseProductImagesCsv, parseProductsCsv } from '../../src/services/csv/import';
+import { clearDatabase, listPriceChecks, replaceCompetitors, replaceProducts } from '../../src/database/database';
+import { parseCompetitorsCsv, parseProductsCsv } from '../../src/services/csv/import';
 import { priceChecksToCsv } from '../../src/services/csv/export';
 import { useTheme } from '../../src/theme/ThemeContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,21 +22,6 @@ export default function GestionScreen() {
     if (result.canceled) return null;
     const bytes = await result.result.bytes();
     return new TextDecoder('utf-8').decode(bytes);
-  };
-
-  const handleProductImagesImport = async () => {
-    try {
-      setLoading(true);
-      const csv = await pickCsv();
-      if (!csv) return;
-      const images = parseProductImagesCsv(csv);
-      replaceProductImages(images);
-      Alert.alert('Imágenes cargadas', `Se guardaron ${images.length} imágenes.`);
-    } catch (error) {
-      Alert.alert('Error al cargar imágenes', error instanceof Error ? error.message : 'No se pudo leer el archivo seleccionado.');
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handleProductsImport = async () => {
@@ -91,7 +76,7 @@ export default function GestionScreen() {
   const handleClearDatabase = () => {
     Alert.alert(
       'Borrar toda la información',
-      'Se eliminarán productos, competidores, imágenes y registros de precios. Esta acción no se puede deshacer.',
+      'Se eliminarán productos, competidores y registros de precios. Esta acción no se puede deshacer.',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -99,7 +84,7 @@ export default function GestionScreen() {
           style: 'destructive',
           onPress: () => {
             clearDatabase();
-            Alert.alert('Base de datos reiniciada', 'Ya puedes cargar nuevamente los productos, competidores e imágenes.');
+            Alert.alert('Base de datos reiniciada', 'Ya puedes cargar nuevamente los productos y competidores.');
           },
         },
       ],
@@ -123,13 +108,10 @@ export default function GestionScreen() {
           Sube archivos CSV separados por coma (,) o punto y coma (;), con o sin encabezados. Siguiendo el orden de columnas que se indica a continuación:
         </Text>
         <Text className="text-sm mb-6" style={{ color: colors.muted }}>
-        productos: Categoría - Código - Código Externo (opcional) - Descripción - Proveedor.
+        productos: Categoría - Código - Código Externo (opcional) - Descripción - Proveedor - Enlace de imagen (opcional).
         </Text>
         <Text className="text-sm mb-6" style={{ color: colors.muted }}>
           competidores: Nombre.
-        </Text>
-        <Text className="text-sm mb-6" style={{ color: colors.muted }}>
-          imágenes: Código del producto - Enlace de la imagen.
         </Text>
         <TouchableOpacity
           onPress={handleProductsImport}
@@ -148,15 +130,6 @@ export default function GestionScreen() {
         >
           <Upload color={colors.primary} size={20} />
           <Text className="font-bold ml-2" style={{ color: colors.primary }}>2. Cargar Competidores.csv</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={handleProductImagesImport}
-          disabled={loading}
-          className="border py-4 rounded-xl flex-row justify-center items-center mt-3"
-          style={{ backgroundColor: colors.primaryTint, borderColor: colors.border }}
-        >
-          <Upload color={colors.primary} size={20} />
-          <Text className="font-bold ml-2" style={{ color: colors.primary }}>3. Cargar Imágenes.csv</Text>
         </TouchableOpacity>
       </View>
 
@@ -182,7 +155,7 @@ export default function GestionScreen() {
           <Text className="text-base font-bold ml-2" style={{ color: colors.text }}>Reiniciar información</Text>
         </View>
         <Text className="text-sm mb-4" style={{ color: colors.muted }}>
-          Elimina productos, competidores, imágenes y registros para comenzar una carga nueva.
+          Elimina productos, competidores y registros para comenzar una carga nueva.
         </Text>
         <TouchableOpacity
           onPress={handleClearDatabase}

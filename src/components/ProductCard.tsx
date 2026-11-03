@@ -1,9 +1,9 @@
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { Image } from 'expo-image';
-import { ActivityIndicator, Keyboard, Linking, Pressable, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { ChevronDown, ChevronUp, Edit3, Image as ImageIcon, Save } from 'lucide-react-native';
+import { ActivityIndicator, Alert, Keyboard, Linking, Pressable, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ChevronDown, ChevronUp, Edit3, Image as ImageIcon, Save, Trash2 } from 'lucide-react-native';
 import { PriceCheck, Product } from '../database/types';
-import { getProductImageLink, savePriceCheck, updatePriceCheck } from '../database/database';
+import { deletePriceCheck, savePriceCheck, updatePriceCheck } from '../database/database';
 import { useTheme } from '../theme/ThemeContext';
 
 type ProductCardProps = {
@@ -55,7 +55,7 @@ function ProductCard({ product, getSelectedCompetitor, isChecked, records, onRec
     }
 
     try {
-      const link = getProductImageLink(product.code)?.trim();
+      const link = product.link?.trim();
       if (!link) {
         setImageUrl(null);
         setImageError(null);
@@ -108,7 +108,7 @@ function ProductCard({ product, getSelectedCompetitor, isChecked, records, onRec
     const existingRecord = editingId === null ? undefined : records.find((item) => item.id === editingId);
     const data = {
       productCode: product.code,
-      competitor: existingRecord?.competitor ?? getSelectedCompetitor(),
+      competitor: getSelectedCompetitor() || existingRecord?.competitor || '',
       price: parsedPrice,
       brand: marca.trim() || null,
       status: status as PriceCheck['status'],
@@ -138,6 +138,30 @@ function ProductCard({ product, getSelectedCompetitor, isChecked, records, onRec
     setMarca(record.brand ?? '');
     setStatus(record.status);
     setExpanded(true);
+  };
+
+  const handleDelete = (record: PriceCheck) => {
+    Alert.alert(
+      'Eliminar registro',
+      `¿Quieres eliminar el registro de ${record.competitor}?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () => {
+            try {
+              deletePriceCheck(record.id);
+              onRecordsChange(product.code, records.filter((item) => item.id !== record.id));
+              if (editingId === record.id) resetForm();
+              showSaveMessage('Registro eliminado');
+            } catch (error) {
+              showSaveMessage(error instanceof Error ? error.message : 'No se pudo eliminar el registro.', true);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const retryImage = () => {
@@ -249,9 +273,24 @@ function ProductCard({ product, getSelectedCompetitor, isChecked, records, onRec
                     <Text className="text-sm font-bold" style={{ color: colors.text }}>${formatPrice(record.price)} · {record.competitor}</Text>
                     <Text className="text-sm" style={{ color: record.status === 'Igual' ? colors.equal : colors.similar }}>{record.status}{record.brand ? ` · ${record.brand}` : ''}</Text>
                   </View>
-                  <TouchableOpacity onPress={() => handleEdit(record)} className="rounded-lg p-2" style={{ backgroundColor: colors.primaryTint }}>
-                    <Edit3 color={colors.primary} size={16} />
-                  </TouchableOpacity>
+                  <View className="flex-row items-center">
+                    <TouchableOpacity
+                      accessibilityLabel="Modificar registro"
+                      onPress={() => handleEdit(record)}
+                      className="rounded-lg p-2 mr-2"
+                      style={{ backgroundColor: colors.primaryTint }}
+                    >
+                      <Edit3 color={colors.primary} size={16} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      accessibilityLabel="Eliminar registro"
+                      onPress={() => handleDelete(record)}
+                      className="rounded-lg p-2"
+                      style={{ backgroundColor: colors.similarTint }}
+                    >
+                      <Trash2 color={colors.similar} size={16} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               ))}
             </View>
