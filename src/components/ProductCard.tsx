@@ -3,16 +3,15 @@ import { Image } from 'expo-image';
 import { ActivityIndicator, Alert, Keyboard, Linking, Pressable, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { ChevronDown, ChevronUp, Edit3, Image as ImageIcon, Save, Trash2 } from 'lucide-react-native';
 import { PriceCheck, Product } from '../database/types';
-import { deletePriceCheck, savePriceCheck, updatePriceCheck } from '../database/database';
+import { deletePriceCheck, listPriceChecksForProduct, savePriceCheck, updatePriceCheck } from '../database/database';
 import { useTheme } from '../theme/ThemeContext';
 
 type ProductCardProps = {
   product: Product;
   getSelectedCompetitor: () => string;
   isChecked: boolean;
-  records: PriceCheck[];
-  onRecordsNeedLoad: (productCode: number) => void;
-  onRecordsChange: (productCode: number, records: PriceCheck[]) => void;
+  syncVersion: number;
+  onCheckedChange: (productCode: number, isChecked: boolean) => void;
 };
 
 function parsePrice(value: string) {
@@ -23,57 +22,45 @@ function formatPrice(value: number) {
   return String(value).replace('.', ',');
 }
 
-function ProductCard({ product, getSelectedCompetitor, isChecked, records, onRecordsNeedLoad, onRecordsChange }: ProductCardProps) {
+function ProductCard({ product, getSelectedCompetitor, isChecked, syncVersion, onCheckedChange }: ProductCardProps) {
   const { colors } = useTheme();
   const [expanded, setExpanded] = useState(false);
+  const [records, setRecords] = useState<PriceCheck[]>([]);
+  const [recordsLoaded, setRecordsLoaded] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [precio, setPrecio] = useState('');
   const [marca, setMarca] = useState('');
   const [status, setStatus] = useState<PriceCheck['status'] | ''>('Igual');
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [imageStatus, setImageStatus] = useState<'idle' | 'loading' | 'loaded' | 'unavailable' | 'error'>('idle');
-  const [imageError, setImageError] = useState<string | null>(null);
+  const [imageStatus, setImageStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
   const [imageKey, setImageKey] = useState(0);
   const [saveMessage, setSaveMessage] = useState<{ text: string; isError: boolean } | null>(null);
   const messageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const parsedPrice = parsePrice(precio);
   const isValid = precio.trim() !== '' && Number.isFinite(parsedPrice) && status !== '';
-  const startImageLoad = () => {
-    setImageError(null);
+
+  const trimmedLink = product.link?.trim() ?? '';
+  const hasLink = trimmedLink.length > 0;
+  const isValidUrl = hasLink && /^https?:\/\/\S+$/i.test(trimmedLink);
+
+  useEffect(() => {
     setImageStatus('loading');
-  };
-  useEffect(() => {
-    if (expanded) onRecordsNeedLoad(product.code);
-  }, [expanded, onRecordsNeedLoad, product.code]);
+  }, [trimmedLink]);
 
   useEffect(() => {
-    if (!expanded) {
-      setImageUrl(null);
-      setImageError(null);
-      setImageStatus('idle');
-      return;
+    setRecordsLoaded(false);
+    if (expanded) {
+      setRecords(listPriceChecksForProduct(product.code));
+      setRecordsLoaded(true);
     }
+  }, [syncVersion, product.code]);
 
-    try {
-      const link = product.link?.trim();
-      if (!link) {
-        setImageUrl(null);
-        setImageError(null);
-        setImageStatus('unavailable');
-      } else if (!/^https?:\/\/\S+$/i.test(link)) {
-        setImageUrl(null);
-        setImageError('El enlace guardado no es una URL válida.');
-        setImageStatus('error');
-      } else {
-        setImageUrl(link);
-        startImageLoad();
-      }
-    } catch (error) {
-      setImageUrl(null);
-      setImageError(error instanceof Error ? error.message : 'No se pudo consultar el enlace de la imagen.');
-      setImageStatus('error');
+  useEffect(() => {
+    if (expanded && !recordsLoaded) {
+      setRecords(listPriceChecksForProduct(product.code));
+      setRecordsLoaded(true);
     }
-  }, [expanded, product]);
+  }, [expanded, recordsLoaded, product.code]);
 
   useEffect(() => () => {
     if (messageTimer.current) clearTimeout(messageTimer.current);
@@ -97,6 +84,7 @@ function ProductCard({ product, getSelectedCompetitor, isChecked, records, onRec
     const url = `https://www.google.com/search?tbm=isch&q=${query}`;
     if (await Linking.canOpenURL(url)) await Linking.openURL(url);
   };
+
   const handleEpaSearch = async () => {
     const url = `https://ve.epaenlinea.com/catalogsearch/result/?q=${product.code}`;
     if (await Linking.canOpenURL(url)) await Linking.openURL(url);
@@ -105,7 +93,9 @@ function ProductCard({ product, getSelectedCompetitor, isChecked, records, onRec
   const handleSave = () => {
     if (!isValid) return;
     Keyboard.dismiss();
-    const existingRecord = editingId === null ? undefined : records.find((item) => item.id === editingId);
+
+    const currentRecords = recordsLoaded ? records : listPriceChecksForProduct(product.code);
+    const existingRecord = editingId === null ? undefined : currentRecords.find((item) => item.id === editingId);
     const data = {
       productCode: product.code,
       competitor: getSelectedCompetitor() || existingRecord?.competitor || '',
@@ -117,12 +107,21 @@ function ProductCard({ product, getSelectedCompetitor, isChecked, records, onRec
     try {
       if (editingId === null) {
         const record = savePriceCheck(data);
-        onRecordsChange(product.code, [record, ...records]);
+        const nextRecords = [record, ...currentRecords];
+        setRecords(nextRecords);
+        setRecordsLoaded(true);
+        onCheckedChange(product.code, true);
         showSaveMessage('Registro guardado');
       } else {
-        const record = { ...data, id: editingId, createdAt: records.find((item) => item.id === editingId)?.createdAt ?? new Date().toISOString() };
+        const record = {
+          ...data,
+          id: editingId,
+          createdAt: existingRecord?.createdAt ?? new Date().toISOString(),
+        };
         updatePriceCheck(record);
-        onRecordsChange(product.code, records.map((item) => (item.id === editingId ? record : item)));
+        const nextRecords = currentRecords.map((item) => (item.id === editingId ? record : item));
+        setRecords(nextRecords);
+        setRecordsLoaded(true);
         showSaveMessage('Registro actualizado');
       }
       resetForm();
@@ -152,7 +151,9 @@ function ProductCard({ product, getSelectedCompetitor, isChecked, records, onRec
           onPress: () => {
             try {
               deletePriceCheck(record.id);
-              onRecordsChange(product.code, records.filter((item) => item.id !== record.id));
+              const nextRecords = records.filter((item) => item.id !== record.id);
+              setRecords(nextRecords);
+              onCheckedChange(product.code, nextRecords.length > 0);
               if (editingId === record.id) resetForm();
               showSaveMessage('Registro eliminado');
             } catch (error) {
@@ -166,7 +167,7 @@ function ProductCard({ product, getSelectedCompetitor, isChecked, records, onRec
 
   const retryImage = () => {
     setImageKey((key) => key + 1);
-    startImageLoad();
+    setImageStatus('loading');
   };
 
   return (
@@ -182,6 +183,44 @@ function ProductCard({ product, getSelectedCompetitor, isChecked, records, onRec
           <Text className="text-xs" style={{ color: colors.muted }}>Cat. {product.category} · {product.prov}</Text>
         </View>
         <Text className="font-bold text-sm" style={{ color: colors.text }}>{product.desc}</Text>
+      </View>
+
+      <View className="mx-4 mb-3 rounded-xl overflow-hidden items-center justify-center" style={{ height: 160, backgroundColor: colors.input }}>
+        {isValidUrl && imageStatus !== 'error' && (
+          <Image
+            key={imageKey}
+            recyclingKey={String(product.code)}
+            source={{ uri: trimmedLink }}
+            contentFit="contain"
+            cachePolicy="memory-disk"
+            onLoad={() => setImageStatus('loaded')}
+            onError={() => setImageStatus('error')}
+            style={{ width: '100%', height: '100%' }}
+          />
+        )}
+        {isValidUrl && imageStatus === 'loading' && (
+          <View className="absolute items-center rounded-xl px-3 py-2" style={{ backgroundColor: colors.surface }}>
+            <ActivityIndicator color={colors.primary} />
+            <Text className="text-xs mt-1" style={{ color: colors.muted }}>Cargando imagen...</Text>
+          </View>
+        )}
+        {(!hasLink || !isValidUrl || imageStatus === 'error') && (
+          <View className="items-center px-3">
+            <ImageIcon color={!hasLink ? colors.muted : colors.similar} size={28} />
+            <Text className="text-xs mt-2 text-center" style={{ color: !hasLink ? colors.muted : colors.similar }}>
+              {!hasLink
+                ? 'No hay imagen registrada'
+                : !isValidUrl
+                  ? 'El enlace guardado no es válido'
+                  : 'No se pudo cargar la imagen'}
+            </Text>
+            {isValidUrl && imageStatus === 'error' && (
+              <Pressable onPress={retryImage} className="mt-2 rounded-lg px-3 py-2" style={{ backgroundColor: colors.primaryTint }}>
+                <Text className="text-xs font-bold" style={{ color: colors.primary }}>Reintentar</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
       </View>
 
       <View className="px-4 pb-4">
@@ -213,56 +252,17 @@ function ProductCard({ product, getSelectedCompetitor, isChecked, records, onRec
 
       {expanded && (
         <View className="px-4 pb-4 border-t pt-3" style={{ backgroundColor: colors.expanded, borderTopColor: colors.border }}>
-          <View className="mx-4 mb-4 rounded-xl overflow-hidden items-center justify-center" style={{ height: 160, backgroundColor: colors.input }}>
-            {imageUrl && (imageStatus === 'loading' || imageStatus === 'loaded') ? (
-              <Image
-                key={imageKey}
-                source={{ uri: imageUrl }}
-                contentFit="contain"
-                cachePolicy="memory-disk"
-                onLoad={() => {
-                  setImageError(null);
-                  setImageStatus('loaded');
-                }}
-                onError={(event) => {
-                  setImageError(event.error || 'El servidor no pudo entregar la imagen.');
-                  setImageStatus('error');
-                }}
-                style={{ width: '100%', height: '100%' }}
-              />
-            ) : null}
-            {imageStatus === 'loading' && (
-              <View className="absolute items-center rounded-xl px-3 py-2" style={{ backgroundColor: colors.surface }}>
-                <ActivityIndicator color={colors.primary} />
-                <Text className="text-xs mt-1" style={{ color: colors.muted }}>Cargando imagen...</Text>
-              </View>
-            )}
-            {(imageStatus === 'unavailable' || imageStatus === 'error') && (
-              <View className="items-center">
-                <ImageIcon color={imageStatus === 'error' ? colors.similar : colors.muted} size={28} />
-                <Text className="text-xs mt-2 text-center" style={{ color: imageStatus === 'error' ? colors.similar : colors.muted }}>
-                  {imageStatus === 'error' ? `Ocurrió un error al cargar la imagen. ${imageError ?? 'Error desconocido.'}` : 'No hay imagen registrada'}
-                </Text>
-                {imageStatus === 'error' && (
-                  <Pressable onPress={retryImage} className="mt-2 rounded-lg px-3 py-2" style={{ backgroundColor: colors.primaryTint }}>
-                    <Text className="text-xs font-bold" style={{ color: colors.primary }}>Reintentar</Text>
-                  </Pressable>
-                )}
-              </View>
-            )}
-          </View>
-          <View className='flex-row justify-center gap-5 items-center'>
-            <TouchableOpacity onPress={handleGoogleSearch} className="border p-3 rounded-xl flex-row justify-center items-center " style={{ backgroundColor: colors.input, borderColor: colors.border }}>
-            <ImageIcon color={colors.primary} size={18} />
-            <Text className="font-bold ml-2 text-sm" style={{ color: colors.primary }}>referencia en web</Text>
+          <View className="flex-row justify-center gap-5 items-center">
+            <TouchableOpacity onPress={handleGoogleSearch} className="border p-3 rounded-xl flex-row justify-center items-center" style={{ backgroundColor: colors.input, borderColor: colors.border }}>
+              <ImageIcon color={colors.primary} size={18} />
+              <Text className="font-bold ml-2 text-sm" style={{ color: colors.primary }}>referencia en web</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={handleEpaSearch} className="border p-3 rounded-xl flex-row justify-center items-center " style={{ backgroundColor: colors.input, borderColor: colors.border }}>
-            <ImageIcon color={colors.epa} size={18} />
-            <Text className="font-bold ml-2 text-sm" style={{ color: colors.epa }}>referencia en EPA</Text>
+            <TouchableOpacity onPress={handleEpaSearch} className="border p-3 rounded-xl flex-row justify-center items-center" style={{ backgroundColor: colors.input, borderColor: colors.border }}>
+              <ImageIcon color={colors.epa} size={18} />
+              <Text className="font-bold ml-2 text-sm" style={{ color: colors.epa }}>referencia en EPA</Text>
             </TouchableOpacity>
           </View>
-          
 
           {records.length > 0 && (
             <View className="mt-3">

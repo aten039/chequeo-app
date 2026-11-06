@@ -5,13 +5,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronDown, Search, Store } from 'lucide-react-native';
 import { useCompetitorSelection, useCompetitorSelectionActions } from '../../src/context/CompetitorSelectionContext';
 import ProductCard from '../../src/components/ProductCard';
-import { PriceCheck, Product } from '../../src/database/types';
-import { listCheckedProductCodes, listCompetitors, listPriceChecksForProduct, listProducts } from '../../src/database/database';
+import { Product } from '../../src/database/types';
+import { listCheckedProductCodes, listCompetitors, listProducts } from '../../src/database/database';
 import { useTheme } from '../../src/theme/ThemeContext';
 
 type ProgressFilter = 'Todos' | 'Pendientes' | 'Chequeados';
-
-const EMPTY_PRICE_CHECKS: PriceCheck[] = [];
 
 function RevisionSummary({ checkedCount, productCount }: { checkedCount: number; productCount: number }) {
   const { colors } = useTheme();
@@ -40,11 +38,8 @@ export default function RevisionScreen() {
   const [category, setCategory] = useState('Todas');
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [progressFilter, setProgressFilter] = useState<ProgressFilter>('Todos');
-  const [recordsByProduct, setRecordsByProduct] = useState<Record<string, PriceCheck[]>>({});
   const [checkedProductCodes, setCheckedProductCodes] = useState<Set<number>>(() => new Set());
-  const checkedProductCodesRef = useRef(new Set<number>());
-  const loadedProductCodes = useRef(new Set<number>());
-  const [recordsGeneration, setRecordsGeneration] = useState(0);
+  const [syncVersion, setSyncVersion] = useState(0);
   const flatListRef = useRef<FlatList<Product>>(null);
   const didMountFilters = useRef(false);
 
@@ -53,20 +48,21 @@ export default function RevisionScreen() {
     const loadedProducts = listProducts();
     const loadedCompetitors = listCompetitors();
     const nextCheckedProductCodes = new Set(listCheckedProductCodes());
-    const previousCheckedProductCodes = checkedProductCodesRef.current;
-    const checkedProductsChanged = previousCheckedProductCodes.size !== nextCheckedProductCodes.size
-      || Array.from(previousCheckedProductCodes).some((productCode) => !nextCheckedProductCodes.has(productCode));
-    if (checkedProductsChanged) {
-      loadedProductCodes.current.clear();
-      setRecordsByProduct({});
-      setRecordsGeneration((generation) => generation + 1);
-    }
-    checkedProductCodesRef.current = nextCheckedProductCodes;
+
     setProducts(loadedProducts);
     setSelectedCompetitor(
-      (current) => current && loadedCompetitors.includes(current) ? current : loadedCompetitors[0] ?? '',
+      (current) => (current && loadedCompetitors.includes(current) ? current : loadedCompetitors[0] ?? ''),
     );
-    setCheckedProductCodes(nextCheckedProductCodes);
+    setCheckedProductCodes((current) => {
+      const changed =
+        current.size !== nextCheckedProductCodes.size ||
+        Array.from(current).some((code) => !nextCheckedProductCodes.has(code));
+      if (changed) {
+        setSyncVersion((v) => v + 1);
+        return nextCheckedProductCodes;
+      }
+      return current;
+    });
   }, [setSelectedCompetitor]);
 
   useFocusEffect(loadData);
@@ -75,10 +71,13 @@ export default function RevisionScreen() {
   const filteredProducts = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
     return products.filter((product) => {
-      const matchesSearch = !query || `${product.code} ${product.codExt ?? ''} ${product.desc} ${product.prov}`.toLowerCase().includes(query);
+      const matchesSearch =
+        !query ||
+        `${product.code} ${product.codExt ?? ''} ${product.desc} ${product.prov}`.toLowerCase().includes(query);
       return matchesSearch && (category === 'Todas' || product.category === category);
     });
   }, [category, products, searchTerm]);
+
   const visibleProducts = useMemo(() => {
     if (progressFilter === 'Todos') return filteredProducts;
     return filteredProducts.filter((product) => {
@@ -86,6 +85,7 @@ export default function RevisionScreen() {
       return progressFilter === 'Chequeados' ? isChecked : !isChecked;
     });
   }, [checkedProductCodes, filteredProducts, progressFilter]);
+
   useEffect(() => {
     if (!didMountFilters.current) {
       didMountFilters.current = true;
@@ -93,51 +93,41 @@ export default function RevisionScreen() {
     }
     flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
   }, [category, progressFilter, searchTerm]);
-  const checkedCount = checkedProductCodes.size;
+
   const categories = useMemo(
     () => ['Todas', ...Array.from(new Set(products.map((product) => product.category)))],
     [products],
   );
-  const handleRecordsNeedLoad = useCallback((productCode: number) => {
-    if (loadedProductCodes.current.has(productCode)) return;
-    const records = listPriceChecksForProduct(productCode);
-    loadedProductCodes.current.add(productCode);
-    setRecordsByProduct((current) => ({ ...current, [String(productCode)]: records }));
-  }, [recordsGeneration]);
-  const handleRecordsChange = useCallback((productCode: number, records: PriceCheck[]) => {
-    setRecordsByProduct((current) => ({ ...current, [String(productCode)]: records }));
-    if (records.length > 0) {
-      checkedProductCodesRef.current.add(productCode);
-      setCheckedProductCodes((current) => {
-        if (current.has(productCode)) return current;
-        const next = new Set(current);
+
+  const handleCheckedChange = useCallback((productCode: number, isChecked: boolean) => {
+    setCheckedProductCodes((current) => {
+      if (current.has(productCode) === isChecked) return current;
+      const next = new Set(current);
+      if (isChecked) {
         next.add(productCode);
-        return next;
-      });
-    } else {
-      checkedProductCodesRef.current.delete(productCode);
-      setCheckedProductCodes((current) => {
-        if (!current.has(productCode)) return current;
-        const next = new Set(current);
+      } else {
         next.delete(productCode);
-        return next;
-      });
-    }
+      }
+      return next;
+    });
   }, []);
-  const renderProduct = useCallback(({ item }: { item: Product }) => (
-    <ProductCard
-      product={item}
-      getSelectedCompetitor={getSelectedCompetitor}
-      isChecked={checkedProductCodes.has(item.code)}
-      records={recordsByProduct[String(item.code)] ?? EMPTY_PRICE_CHECKS}
-      onRecordsNeedLoad={handleRecordsNeedLoad}
-      onRecordsChange={handleRecordsChange}
-    />
-  ), [checkedProductCodes, getSelectedCompetitor, handleRecordsChange, handleRecordsNeedLoad, recordsByProduct]);
+
+  const renderProduct = useCallback(
+    ({ item }: { item: Product }) => (
+      <ProductCard
+        product={item}
+        getSelectedCompetitor={getSelectedCompetitor}
+        isChecked={checkedProductCodes.has(item.code)}
+        syncVersion={syncVersion}
+        onCheckedChange={handleCheckedChange}
+      />
+    ),
+    [checkedProductCodes, getSelectedCompetitor, handleCheckedChange, syncVersion],
+  );
 
   return (
     <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }} edges={['top']}>
-      <RevisionSummary checkedCount={checkedCount} productCount={products.length} />
+      <RevisionSummary checkedCount={checkedProductCodes.size} productCount={products.length} />
 
       <View className="px-4 pb-3" style={{ backgroundColor: colors.surface }}>
         <View className="flex-row items-center border rounded-xl px-4 py-1" style={{ backgroundColor: colors.input, borderColor: colors.border }}>
@@ -205,7 +195,6 @@ export default function RevisionScreen() {
             </Modal>
           </View>
         </View>
-
       </View>
 
       <FlatList
@@ -214,10 +203,10 @@ export default function RevisionScreen() {
         keyExtractor={(item) => String(item.code)}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ padding: 12, paddingBottom: 24 }}
-        initialNumToRender={20}
-        maxToRenderPerBatch={20}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
         updateCellsBatchingPeriod={50}
-        windowSize={7}
+        windowSize={5}
         removeClippedSubviews={false}
         renderItem={renderProduct}
         ListEmptyComponent={<Text className="text-center mt-8" style={{ color: colors.muted }}>No hay productos con estos filtros.</Text>}

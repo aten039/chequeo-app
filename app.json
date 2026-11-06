@@ -30,7 +30,8 @@
       "expo-router",
       "expo-status-bar",
       "expo-sqlite",
-      "expo-image"
+      "expo-image",
+      "expo-sharing"
     ],
     "extra": {
       "router": {},
